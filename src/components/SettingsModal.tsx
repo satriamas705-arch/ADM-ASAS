@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Settings, Save, Check } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Save, Upload, Trash2 } from 'lucide-react';
 import { ExamSettings, Room, Student, ExamScheduleItem } from '../types';
 import { extractCityFromAddress } from '../utils/examDocuments';
 import { ExamBackupData } from '../utils/backupRestore';
@@ -28,13 +28,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [formData, setFormData] = useState<ExamSettings>({ ...settings });
 
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const headmasterSigRef = useRef<HTMLInputElement>(null);
+  const committeeSigRef = useRef<HTMLInputElement>(null);
+  const stampRef = useRef<HTMLInputElement>(null);
+
   React.useEffect(() => {
     if (isOpen) {
       setFormData({ ...settings });
+      setUploadError(null);
     }
   }, [settings, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleAssetUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: 'headmasterSignature' | 'committeeSignature' | 'schoolStamp',
+    label: string
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setUploadError(`Ukuran ${label} maksimal 2MB.`);
+      return;
+    }
+    setUploadError(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      if (result) {
+        setFormData((prev) => ({ ...prev, [field]: result }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -235,6 +264,109 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   placeholder="Contoh: 20 Oktober 2026"
                   className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none"
                 />
+              </div>
+            </div>
+
+            {/* Compact TTD & Stempel Sekolah Uploads */}
+            <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-slate-700">
+                  TTD Pejabat &amp; Stempel Sekolah (PNG/JPG maks. 2MB)
+                </span>
+                {uploadError && (
+                  <span className="text-2xs text-rose-600 font-medium">{uploadError}</span>
+                )}
+              </div>
+
+              <input
+                type="file"
+                ref={headmasterSigRef}
+                onChange={(e) =>
+                  handleAssetUpload(e, 'headmasterSignature', 'TTD Kepala Sekolah')
+                }
+                accept="image/png,image/jpeg,image/webp,image/*"
+                className="hidden"
+              />
+              <input
+                type="file"
+                ref={committeeSigRef}
+                onChange={(e) =>
+                  handleAssetUpload(e, 'committeeSignature', 'TTD Ketua Panitia')
+                }
+                accept="image/png,image/jpeg,image/webp,image/*"
+                className="hidden"
+              />
+              <input
+                type="file"
+                ref={stampRef}
+                onChange={(e) => handleAssetUpload(e, 'schoolStamp', 'Stempel Sekolah')}
+                accept="image/png,image/jpeg,image/webp,image/*"
+                className="hidden"
+              />
+
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  {
+                    field: 'headmasterSignature' as const,
+                    label: 'TTD Kepsek',
+                    ref: headmasterSigRef,
+                  },
+                  {
+                    field: 'committeeSignature' as const,
+                    label: 'TTD Ketua Panitia',
+                    ref: committeeSigRef,
+                  },
+                  {
+                    field: 'schoolStamp' as const,
+                    label: 'Stempel Sekolah',
+                    ref: stampRef,
+                  },
+                ].map((item) => {
+                  const val = formData[item.field];
+                  return (
+                    <div
+                      key={item.field}
+                      className="border border-slate-200 rounded-md p-2 bg-slate-50 flex flex-col gap-1.5"
+                    >
+                      <span className="text-2xs font-bold text-slate-700 truncate">
+                        {item.label}
+                      </span>
+                      <div className="h-12 bg-white border border-dashed border-slate-300 rounded flex items-center justify-center p-1 overflow-hidden">
+                        {val ? (
+                          <img
+                            src={val}
+                            alt={item.label}
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <span className="text-3xs text-slate-400">Kosong</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => item.ref.current?.click()}
+                          className="flex-1 flex items-center justify-center gap-1 px-1.5 py-1 text-3xs font-semibold bg-white hover:bg-slate-100 border border-slate-300 rounded text-slate-800"
+                        >
+                          <Upload className="w-2.5 h-2.5" />
+                          <span>{val ? 'Ganti' : 'Unggah'}</span>
+                        </button>
+                        {val && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFormData((prev) => ({ ...prev, [item.field]: undefined }))
+                            }
+                            className="p-1 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded"
+                            title={`Hapus ${item.label}`}
+                          >
+                            <Trash2 className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

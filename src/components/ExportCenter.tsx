@@ -840,7 +840,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
               </div>
 
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-slate-600">
-                Fokus pada identitas siswa (NIS/NISN, nama, kelas, ruang &amp; nomor meja), pas foto 2x3, jadwal ujian bergaris tabel tegas dengan <strong>kolom paraf pengawas ruang</strong>, dan batas gunting resmi.
+                Format lega <strong>1,5 spasi</strong> dengan identitas siswa, pas foto 2x3, jadwal ujian bergaris tabel tegas (kolom <strong>paraf pengawas ruang</strong>), serta pengesahan <strong>TTD &amp; Stempel Kepala Sekolah</strong> di bagian kanan bawah kartu.
               </div>
             </div>
           </div>

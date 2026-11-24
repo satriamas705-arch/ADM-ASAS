@@ -121,6 +121,7 @@ import {
   InvigilatorScheduleAndAttendanceSheet,
   InvigilatorSubMode,
 } from './DistributionAndInvigilatorPreview';
+import { OfficialSignatureGraphic } from './OfficialSignatureGraphic';
 
 interface RulesAndPreviewMenuProps {
   settings: ExamSettings;
@@ -274,6 +275,9 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
   // File upload refs
   const fileInputPemdaRef = useRef<HTMLInputElement>(null);
   const fileInputSchoolRef = useRef<HTMLInputElement>(null);
+  const fileInputHeadmasterSigRef = useRef<HTMLInputElement>(null);
+  const fileInputCommitteeSigRef = useRef<HTMLInputElement>(null);
+  const fileInputStampRef = useRef<HTMLInputElement>(null);
 
   const selectedRoom = rooms.find((r) => r.id === selectedPreviewRoomId) || rooms[0];
   const roomStudents = selectedRoom
@@ -802,6 +806,52 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  type SignatureAssetField = 'headmasterSignature' | 'committeeSignature' | 'schoolStamp';
+
+  const handleSignatureAssetUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: SignatureAssetField,
+    label: string
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      showFeedback(`Ukuran file ${label} maksimal 2MB.`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        const nextFormData: ExamSettings = { ...formData, [field]: result };
+        const nextSettings: ExamSettings = { ...settings, [field]: result };
+        setFormData(nextFormData);
+        if (onUpdateSettingsOnly) {
+          onUpdateSettingsOnly(nextSettings);
+        } else {
+          onUpdateSettings(nextSettings);
+        }
+        showFeedback(`${label} berhasil diunggah & disinkronkan ke seluruh dokumen!`);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearSignatureAsset = (field: SignatureAssetField, label: string) => {
+    const nextFormData: ExamSettings = { ...formData, [field]: undefined };
+    const nextSettings: ExamSettings = { ...settings, [field]: undefined };
+    setFormData(nextFormData);
+    if (onUpdateSettingsOnly) {
+      onUpdateSettingsOnly(nextSettings);
+    } else {
+      onUpdateSettings(nextSettings);
+    }
+    showFeedback(`${label} dihapus.`);
   };
 
   return (
@@ -2011,6 +2061,188 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                 </div>
               </div>
 
+              {/* UPLOAD TANDA TANGAN & STEMPEL SEKOLAH */}
+              <div className="pt-4 border-t border-slate-200 space-y-3">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Unggah Tanda Tangan (TTD) &amp; Stempel Sekolah
+                  </h3>
+                  <p className="text-2xs text-slate-500 mt-0.5">
+                    Format PNG (latar transparan disarankan) atau JPG maksimal 2MB. Otomatis tampil pada Kartu Peserta Ujian &amp; seluruh dokumen resmi PDF/Pratinjau.
+                  </p>
+                </div>
+
+                {/* Hidden inputs for signatures and stamp */}
+                <input
+                  type="file"
+                  ref={fileInputHeadmasterSigRef}
+                  onChange={(e) =>
+                    handleSignatureAssetUpload(e, 'headmasterSignature', 'TTD Kepala Sekolah')
+                  }
+                  accept="image/png,image/jpeg,image/webp,image/*"
+                  className="hidden"
+                />
+                <input
+                  type="file"
+                  ref={fileInputCommitteeSigRef}
+                  onChange={(e) =>
+                    handleSignatureAssetUpload(e, 'committeeSignature', 'TTD Ketua Panitia')
+                  }
+                  accept="image/png,image/jpeg,image/webp,image/*"
+                  className="hidden"
+                />
+                <input
+                  type="file"
+                  ref={fileInputStampRef}
+                  onChange={(e) =>
+                    handleSignatureAssetUpload(e, 'schoolStamp', 'Stempel Sekolah')
+                  }
+                  accept="image/png,image/jpeg,image/webp,image/*"
+                  className="hidden"
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* 1. TTD Kepala Sekolah */}
+                  <div className="border border-slate-200 rounded-lg p-3.5 bg-slate-50/70 flex flex-col justify-between gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-slate-900">
+                          TTD Kepala Sekolah
+                        </span>
+                        <span className="text-3xs font-mono text-slate-500">Kartu &amp; Dokumen</span>
+                      </div>
+                      <div className="h-20 rounded-md border border-dashed border-slate-300 bg-white flex items-center justify-center p-2 overflow-hidden">
+                        {formData.headmasterSignature ? (
+                          <img
+                            src={formData.headmasterSignature}
+                            alt="TTD Kepala Sekolah"
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <span className="text-2xs text-slate-400 text-center">
+                            Belum ada TTD
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputHeadmasterSigRef.current?.click()}
+                        className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 text-2xs font-semibold bg-white hover:bg-slate-100 border border-slate-300 rounded text-slate-800 transition-colors"
+                      >
+                        <Upload className="w-3 h-3" />
+                        <span>{formData.headmasterSignature ? 'Ganti TTD' : 'Unggah TTD'}</span>
+                      </button>
+                      {formData.headmasterSignature && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleClearSignatureAsset('headmasterSignature', 'TTD Kepala Sekolah')
+                          }
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded transition-colors"
+                          title="Hapus TTD Kepala Sekolah"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 2. TTD Ketua Panitia */}
+                  <div className="border border-slate-200 rounded-lg p-3.5 bg-slate-50/70 flex flex-col justify-between gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-slate-900">
+                          TTD Ketua Panitia
+                        </span>
+                        <span className="text-3xs font-mono text-slate-500">Berita Acara &amp; Dokumen</span>
+                      </div>
+                      <div className="h-20 rounded-md border border-dashed border-slate-300 bg-white flex items-center justify-center p-2 overflow-hidden">
+                        {formData.committeeSignature ? (
+                          <img
+                            src={formData.committeeSignature}
+                            alt="TTD Ketua Panitia"
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <span className="text-2xs text-slate-400 text-center">
+                            Belum ada TTD
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputCommitteeSigRef.current?.click()}
+                        className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 text-2xs font-semibold bg-white hover:bg-slate-100 border border-slate-300 rounded text-slate-800 transition-colors"
+                      >
+                        <Upload className="w-3 h-3" />
+                        <span>{formData.committeeSignature ? 'Ganti TTD' : 'Unggah TTD'}</span>
+                      </button>
+                      {formData.committeeSignature && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleClearSignatureAsset('committeeSignature', 'TTD Ketua Panitia')
+                          }
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded transition-colors"
+                          title="Hapus TTD Ketua Panitia"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3. Stempel Sekolah */}
+                  <div className="border border-slate-200 rounded-lg p-3.5 bg-slate-50/70 flex flex-col justify-between gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-slate-900">
+                          Stempel Sekolah
+                        </span>
+                        <span className="text-3xs font-mono text-slate-500">Kartu &amp; Pengesahan</span>
+                      </div>
+                      <div className="h-20 rounded-md border border-dashed border-slate-300 bg-white flex items-center justify-center p-2 overflow-hidden">
+                        {formData.schoolStamp ? (
+                          <img
+                            src={formData.schoolStamp}
+                            alt="Stempel Sekolah"
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <span className="text-2xs text-slate-400 text-center">
+                            Belum ada Stempel
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputStampRef.current?.click()}
+                        className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 text-2xs font-semibold bg-white hover:bg-slate-100 border border-slate-300 rounded text-slate-800 transition-colors"
+                      >
+                        <Upload className="w-3 h-3" />
+                        <span>{formData.schoolStamp ? 'Ganti Stempel' : 'Unggah Stempel'}</span>
+                      </button>
+                      {formData.schoolStamp && (
+                        <button
+                          type="button"
+                          onClick={() => handleClearSignatureAsset('schoolStamp', 'Stempel Sekolah')}
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded transition-colors"
+                          title="Hapus Stempel Sekolah"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* LIVE PREVIEW OF KOP SURAT & PENGESAHAN */}
               <div className="pt-4 space-y-3">
                 <span className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
@@ -2067,7 +2299,11 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                     <div>
                       <p className="text-slate-600">Mengetahui,</p>
                       <p className="font-semibold">Kepala Sekolah</p>
-                      <div className="h-10" />
+                      <OfficialSignatureGraphic
+                        signatureUrl={formData.headmasterSignature}
+                        stampUrl={formData.schoolStamp}
+                        heightClass="h-14"
+                      />
                       <p className="font-bold underline">{formData.headmaster || '-'}</p>
                       <p className="text-2xs font-mono text-slate-600">NIP. {formData.headmasterNip || '-'}</p>
                     </div>
@@ -2076,7 +2312,10 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                         {extractCityFromSettings(formData)}, {extractSignatureDateFromSettings(formData)}
                       </p>
                       <p className="font-semibold">Ketua Panitia Ujian</p>
-                      <div className="h-10" />
+                      <OfficialSignatureGraphic
+                        signatureUrl={formData.committeeSignature}
+                        heightClass="h-14"
+                      />
                       <p className="font-bold underline">{formData.committeeHead || '-'}</p>
                       <p className="text-2xs font-mono text-slate-600">NIP. {formData.committeeNip || '-'}</p>
                     </div>
@@ -3182,8 +3421,8 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                     if (!cardStudent) return null;
                     return (
                       <React.Fragment key={cardIdx}>
-                        {/* The Exam Card Container */}
-                        <div className="border-2 border-black rounded-lg p-5 bg-white shadow-2xs space-y-4">
+                        {/* The Exam Card Container (1,5 Spasi + TTD & Stempel Kepala Sekolah) */}
+                        <div className="border-2 border-black rounded-lg p-5 bg-white shadow-2xs space-y-5">
                           {/* Card Kop Surat with Dual Logos */}
                           <div className="flex items-center justify-between gap-3 border-b-2 border-black pb-2.5">
                             {/* Logo Kiri Pemda */}
@@ -3218,7 +3457,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                             </div>
                           </div>
 
-                          {/* Student Identity Grid & Photo */}
+                          {/* Student Identity Grid & Photo (1.5 spasi) */}
                           <div className="flex gap-4 items-start">
                             {/* 2x3 Photo Box */}
                             <div className="w-20 h-26 rounded border-2 border-slate-800 bg-slate-50 flex flex-col items-center justify-center text-center p-1 shrink-0">
@@ -3230,7 +3469,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                             </div>
 
                             {/* Identity Fields */}
-                            <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                            <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-2.5 leading-relaxed text-xs">
                               <div className="flex items-baseline">
                                 <span className="w-24 text-slate-600 text-2xs">No. Peserta</span>
                                 <span className="text-slate-500 mr-2 text-2xs">:</span>
@@ -3297,17 +3536,17 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                             </div>
                           </div>
 
-                          {/* Timetable AutoTable with Bold Table Borders & Paraf Pengawas (Focused Exam Card) */}
+                          {/* Timetable AutoTable with Bold Table Borders, 1.5 Spasi & Paraf Pengawas */}
                           <div className="border-2 border-black rounded overflow-hidden">
-                            <table className="w-full text-left text-2xs border-collapse">
+                            <table className="w-full text-left text-2xs border-collapse leading-relaxed">
                               <thead className="bg-slate-900 text-white font-semibold">
                                 <tr>
-                                  <th className="py-1.5 px-2 w-8 text-center border-b border-r border-slate-700">No</th>
-                                  <th className="py-1.5 px-2 w-20 border-b border-r border-slate-700">Hari</th>
-                                  <th className="py-1.5 px-2 w-32 border-b border-r border-slate-700">Tanggal</th>
-                                  <th className="py-1.5 px-2 w-28 text-center border-b border-r border-slate-700">Waktu</th>
-                                  <th className="py-1.5 px-2 border-b border-r border-slate-700">Mata Pelajaran Ujian</th>
-                                  <th className="py-1.5 px-2 w-24 text-center bg-slate-800 border-b border-slate-700">
+                                  <th className="py-2 px-2 w-8 text-center border-b border-r border-slate-700">No</th>
+                                  <th className="py-2 px-2 w-20 border-b border-r border-slate-700">Hari</th>
+                                  <th className="py-2 px-2 w-32 border-b border-r border-slate-700">Tanggal</th>
+                                  <th className="py-2 px-2 w-28 text-center border-b border-r border-slate-700">Waktu</th>
+                                  <th className="py-2 px-2 border-b border-r border-slate-700">Mata Pelajaran Ujian</th>
+                                  <th className="py-2 px-2 w-24 text-center bg-slate-800 border-b border-slate-700">
                                     Paraf Pengawas
                                   </th>
                                 </tr>
@@ -3315,26 +3554,45 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                               <tbody>
                                 {getSchedulesForStudentCard(cardStudent, schedules).map((sch, schIdx) => (
                                   <tr key={sch.id} className="even:bg-slate-50 border-b border-black last:border-b-0">
-                                    <td className="py-1.5 px-2 text-center font-mono font-bold text-slate-900 border-r border-black">
+                                    <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-900 border-r border-black">
                                       {schIdx + 1}
                                     </td>
-                                    <td className="py-1.5 px-2 font-semibold text-black border-r border-black whitespace-nowrap">
+                                    <td className="py-2.5 px-2 font-semibold text-black border-r border-black whitespace-nowrap">
                                       {sch.day}
                                     </td>
-                                    <td className="py-1.5 px-2 font-medium text-black border-r border-black whitespace-nowrap">
+                                    <td className="py-2.5 px-2 font-medium text-black border-r border-black whitespace-nowrap">
                                       {sch.date}
                                     </td>
-                                    <td className="py-1.5 px-2 text-center font-mono text-black border-r border-black whitespace-nowrap">
+                                    <td className="py-2.5 px-2 text-center font-mono text-black border-r border-black whitespace-nowrap">
                                       {sch.time}
                                     </td>
-                                    <td className="py-1.5 px-2 font-semibold text-black border-r border-black">
+                                    <td className="py-2.5 px-2 font-semibold text-black border-r border-black">
                                       {sch.subject}
                                     </td>
-                                    <td className="py-1.5 px-2 text-center">&nbsp;</td>
+                                    <td className="py-2.5 px-2 text-center">&nbsp;</td>
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
+                          </div>
+
+                          {/* Bottom Right Official Headmaster Signature & School Stamp */}
+                          <div className="pt-2 flex justify-end">
+                            <div className="w-60 text-center text-2xs text-black leading-snug">
+                              <p className="text-slate-700">
+                                {extractCityFromSettings(settings)}, {extractSignatureDateFromSettings(settings)}
+                              </p>
+                              <p className="font-semibold">Kepala Sekolah,</p>
+                              <OfficialSignatureGraphic
+                                signatureUrl={settings.headmasterSignature}
+                                stampUrl={settings.schoolStamp}
+                                heightClass="h-14"
+                              />
+                              <p className="font-bold underline text-xs">{settings.headmaster || '-'}</p>
+                              <p className="text-2xs font-mono text-slate-700">
+                                NIP. {settings.headmasterNip || '-'}
+                              </p>
+                            </div>
                           </div>
                         </div>
 

@@ -21,6 +21,7 @@ import {
   HandoverBeritaAcaraRecord,
   HandoverDirectionMode,
 } from '../types';
+import { OfficialSignatureGraphic } from './OfficialSignatureGraphic';
 import {
   extractCityFromSettings,
   extractSignatureDateFromSettings,
@@ -936,7 +937,12 @@ export const ExamJournalSheet: React.FC<ExamJournalSheetProps> = ({
             {cityLabel}, {dateLine}
           </p>
           <p>Kepala Sekolah</p>
-          <div className="h-14" />
+          <OfficialSignatureGraphic
+            signatureUrl={settings.headmasterSignature}
+            stampUrl={settings.schoolStamp}
+            heightClass="h-14"
+            align="left"
+          />
           <p className="font-bold">{settings.headmaster}</p>
           <p>NIP {settings.headmasterNip || '-'}</p>
         </div>
@@ -1202,9 +1208,13 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
         <p className="text-slate-700">
           {extractCityFromSettings(settings)}, {extractSignatureDateFromSettings(settings)}
         </p>
-        <p className="text-slate-700">Mengetahui & Mengesahkan,</p>
+        <p className="text-slate-700">Mengetahui &amp; Mengesahkan,</p>
         <p className="font-bold text-xs">Ketua Panitia Ujian</p>
-        <div className="h-12" />
+        <OfficialSignatureGraphic
+          signatureUrl={settings.committeeSignature}
+          stampUrl={settings.schoolStamp}
+          heightClass="h-12"
+        />
         <p className="font-bold underline text-xs">{settings.committeeHead}</p>
         <p className="text-slate-700 font-mono">NIP. {settings.committeeNip || '-'}</p>
       </div>

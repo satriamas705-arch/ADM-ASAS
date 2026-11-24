@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf';
+import jsPDF, { GState } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
   Student,
@@ -97,6 +97,63 @@ export function createPdfDoc(
     unit: 'mm',
     format,
   });
+}
+
+function detectImageFormat(dataUrl: string): 'PNG' | 'JPEG' | 'WEBP' {
+  const head = dataUrl.slice(0, 48).toLowerCase();
+  if (head.includes('image/jpeg') || head.includes('image/jpg')) return 'JPEG';
+  if (head.includes('image/webp')) return 'WEBP';
+  return 'PNG';
+}
+
+function addImageSafe(
+  doc: jsPDF,
+  dataUrl: string | undefined,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): void {
+  if (!dataUrl) return;
+  try {
+    doc.addImage(dataUrl, detectImageFormat(dataUrl), x, y, w, h);
+  } catch {
+    // Graceful fallback if image data cannot be decoded
+  }
+}
+
+function renderPdfStampAndSignature(
+  doc: jsPDF,
+  settings: ExamSettings,
+  role: 'headmaster' | 'committee',
+  centerX: number,
+  imageTopY: number,
+  options?: { sigW?: number; sigH?: number; stampSize?: number }
+): void {
+  const sigW = options?.sigW ?? 32;
+  const sigH = options?.sigH ?? 14.5;
+  const stampSize = options?.stampSize ?? 27;
+
+  const sigData =
+    role === 'headmaster' ? settings.headmasterSignature : settings.committeeSignature;
+  if (sigData) {
+    addImageSafe(doc, sigData, centerX - sigW / 2, imageTopY + 0.5, sigW, sigH);
+  }
+
+  // Draw enlarged school stamp overlapping on top of Headmaster's signature (left-center)
+  if (role === 'headmaster' && settings.schoolStamp) {
+    const stampX = centerX - stampSize * 0.72;
+    const stampY = imageTopY + 0.5 + sigH / 2 - stampSize / 2;
+    const stampOpacity = detectImageFormat(settings.schoolStamp) === 'PNG' ? 0.88 : 0.65;
+    try {
+      doc.saveGraphicsState();
+      doc.setGState(new GState({ opacity: stampOpacity }));
+      addImageSafe(doc, settings.schoolStamp, stampX, stampY, stampSize, stampSize);
+      doc.restoreGraphicsState();
+    } catch {
+      addImageSafe(doc, settings.schoolStamp, stampX, stampY, stampSize, stampSize);
+    }
+  }
 }
 
 /**
@@ -862,19 +919,35 @@ export function exportExamCardsPdf(
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const cardWidth = Math.min(188, pageWidth - 20); // mm
-  const cardHeight = Math.min(144, Math.floor((pageHeight - 28) / 2)); // mm
+  const twoCardHeight = Math.min(150, Math.floor((pageHeight - 18) / 2)); // mm
+  const singleCardHeight = Math.floor(pageHeight - 18); // mm
   const marginX = (pageWidth - cardWidth) / 2;
-  const topY0 = 9;
-  const topY1 = topY0 + cardHeight + 9;
+  const topY0 = 6;
+
+  const cityLabel = extractCityFromSettings(settings);
+  const dateLabel = extractSignatureDateFromSettings(settings);
+
+  let usedHeightOnCurrentPage = 0;
+  let cardsOnCurrentPage = 0;
 
   filteredStudents.forEach((student, index) => {
-    const cardIndexOnPage = index % 2;
+    const visibleSchedules = getSchedulesForStudentCard(student, schedules);
+    const rowCount = visibleSchedules.length;
+    const useFullPageCard = rowCount > 22;
+    const cardHeight = useFullPageCard ? singleCardHeight : twoCardHeight;
 
-    if (index > 0 && cardIndexOnPage === 0) {
+    if (
+      index > 0 &&
+      (useFullPageCard ||
+        cardsOnCurrentPage >= 2 ||
+        usedHeightOnCurrentPage + cardHeight + 6 > pageHeight - 6)
+    ) {
       doc.addPage();
+      usedHeightOnCurrentPage = 0;
+      cardsOnCurrentPage = 0;
     }
 
-    const y = cardIndexOnPage === 0 ? topY0 : topY1;
+    const y = cardsOnCurrentPage === 0 ? topY0 : topY0 + usedHeightOnCurrentPage + 6;
     const x = marginX;
 
     // Card Outer Border (crisp dark border)
@@ -884,38 +957,24 @@ export function exportExamCardsPdf(
 
     // Header Background Strip
     doc.setFillColor(248, 250, 252);
-    doc.rect(x + 0.3, y + 0.3, cardWidth - 0.6, 17.2, 'F');
+    doc.rect(x + 0.3, y + 0.3, cardWidth - 0.6, 16.2, 'F');
     doc.setDrawColor(...LINE_BLACK);
     doc.setLineWidth(0.48);
-    doc.line(x, y + 17.5, x + cardWidth, y + 17.5);
+    doc.line(x, y + 16.5, x + cardWidth, y + 16.5);
 
-    // Left Logo (Pemda)
-    if (settings.logoLeftPemda) {
-      try {
-        doc.addImage(settings.logoLeftPemda, 'PNG', x + 3, y + 1.8, 13.8, 13.8);
-      } catch {
-        // fallback
-      }
-    }
-
-    // Right Logo (School)
-    if (settings.logoRightSchool) {
-      try {
-        doc.addImage(settings.logoRightSchool, 'PNG', x + cardWidth - 16.8, y + 1.8, 13.8, 13.8);
-      } catch {
-        // fallback
-      }
-    }
+    // Left Logo (Pemda) & Right Logo (School)
+    addImageSafe(doc, settings.logoLeftPemda, x + 3, y + 1.5, 13.5, 13.5);
+    addImageSafe(doc, settings.logoRightSchool, x + cardWidth - 16.5, y + 1.5, 13.5, 13.5);
 
     // Kop Text
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(15, 23, 42);
-    doc.text(settings.schoolName.toUpperCase(), x + cardWidth / 2, y + 5.8, { align: 'center' });
+    doc.text(settings.schoolName.toUpperCase(), x + cardWidth / 2, y + 5.5, { align: 'center' });
 
     doc.setFontSize(10.5);
     doc.setTextColor(0, 0, 0);
-    doc.text('KARTU PESERTA UJIAN', x + cardWidth / 2, y + 10.6, { align: 'center' });
+    doc.text('KARTU PESERTA UJIAN', x + cardWidth / 2, y + 10.2, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.4);
@@ -923,13 +982,13 @@ export function exportExamCardsPdf(
     doc.text(
       `${settings.activityName || settings.examTitle} - TAHUN AJARAN ${settings.academicYear}`.toUpperCase(),
       x + cardWidth / 2,
-      y + 15.1,
+      y + 14.5,
       { align: 'center' }
     );
 
     // Photo Box (2x3 format)
     const photoX = x + 4.5;
-    const photoY = y + 20.5;
+    const photoY = y + 19.2;
     doc.setDrawColor(...LINE_DARK);
     doc.setLineWidth(0.38);
     doc.rect(photoX, photoY, 17.5, 23, 'S');
@@ -938,13 +997,13 @@ export function exportExamCardsPdf(
     doc.text('Pas Foto', photoX + 8.75, photoY + 10.5, { align: 'center' });
     doc.text('2 x 3', photoX + 8.75, photoY + 14.5, { align: 'center' });
 
-    // Student Identity Grid (2 Columns next to photo)
+    // Student Identity Grid (2 Columns next to photo, 1.5 spasi vertical spacing)
     const idX1 = photoX + 21;
     const idX2 = idX1 + 21;
     const idX3 = idX1 + 83;
     const idX4 = idX3 + 20;
 
-    let idY = y + 23.5;
+    let idY = y + 22.0;
     const printField = (label: string, val: string, xLabel: number, xVal: number) => {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.6);
@@ -965,13 +1024,13 @@ export function exportExamCardsPdf(
       idX4
     );
 
-    // Row 2
-    idY += 5.0;
+    // Row 2 (1.5 spasi: 6.1mm step)
+    idY += 6.1;
     printField('NIS / NISN', `${student.nis} / ${student.nisn || '-'}`, idX1, idX2);
     printField('Kelas', student.className, idX3, idX4);
 
     // Row 3
-    idY += 5.0;
+    idY += 6.1;
     printField(
       'Nama Siswa',
       student.name.length > 29 ? student.name.slice(0, 27) + '..' : student.name,
@@ -981,28 +1040,37 @@ export function exportExamCardsPdf(
     printField('Kelamin', student.gender === 'L' ? 'Laki-Laki (L)' : 'Perempuan (P)', idX3, idX4);
 
     // Row 4
-    idY += 5.0;
+    idY += 6.1;
     printField('Sesi Ujian', settings.examSession, idX1, idX2);
     printField('Tanggal', settings.examDate || '-', idX3, idX4);
 
-    // Synchronized schedule for this student (matching grade/class & chronological day/date/time)
-    const visibleSchedules = getSchedulesForStudentCard(student, schedules);
-    const tableStartY = y + 46.2;
-    const rowCount = visibleSchedules.length;
+    // Reserve bottom 24mm for Headmaster signature & school stamp
+    const sigBlockHeight = 24;
+    const sigTopY = y + cardHeight - sigBlockHeight;
+    const tableStartY = y + 44.2;
+    const availableTableHeight = Math.max(40, sigTopY - tableStartY - 2.0);
 
-    if (rowCount <= 15) {
-      // Single clean table with dedicated Hari, Tanggal, Waktu, Mata Pelajaran, Paraf columns
-      let fontSize = 6.9;
+    // Determine single-table vs 2-column side-by-side table to keep 1.5 spasi without overflow
+    const estimatedSingleRowH = rowCount <= 8 ? 6.5 : 5.6;
+    const estimatedSingleTableH = 6.2 + rowCount * estimatedSingleRowH;
+    const canFitSingleTable =
+      rowCount <= 12 && (useFullPageCard || estimatedSingleTableH <= availableTableHeight);
+
+    if (canFitSingleTable) {
+      let fontSize = 7.0;
       let headFontSize = 7.0;
-      let cellPadding = { top: 1.4, bottom: 1.4, left: 1.3, right: 1.3 };
-      if (rowCount >= 12) {
-        fontSize = 5.75;
-        headFontSize = 6.1;
-        cellPadding = { top: 0.65, bottom: 0.65, left: 1.0, right: 1.0 };
-      } else if (rowCount >= 9) {
-        fontSize = 6.25;
-        headFontSize = 6.5;
-        cellPadding = { top: 0.95, bottom: 0.95, left: 1.15, right: 1.15 };
+      let minCellHeight = 6.4; // 1.5 spasi comfortable height
+      let cellPadding = { top: 1.9, bottom: 1.9, left: 1.3, right: 1.3 };
+
+      if (rowCount >= 9) {
+        fontSize = 6.4;
+        headFontSize = 6.6;
+        minCellHeight = 5.4;
+        cellPadding = { top: 1.45, bottom: 1.45, left: 1.15, right: 1.15 };
+      } else if (availableTableHeight < 60 && rowCount >= 7) {
+        // Slightly tighter on shorter Letter paper so 8 rows + signature never overlap
+        minCellHeight = 5.9;
+        cellPadding = { top: 1.65, bottom: 1.65, left: 1.25, right: 1.25 };
       }
 
       const tableBody = visibleSchedules.map((sch, schIdx) => [
@@ -1011,7 +1079,7 @@ export function exportExamCardsPdf(
         sch.date || '-',
         sch.time || '-',
         sch.subject || '-',
-        '', // Blank for invigilator signature paraf
+        '',
       ]);
 
       autoTable(doc, {
@@ -1030,11 +1098,12 @@ export function exportExamCardsPdf(
           fontStyle: 'bold',
           halign: 'center',
           valign: 'middle',
-          cellPadding: { top: 1.25, bottom: 1.25, left: 1.1, right: 1.1 },
+          cellPadding: { top: 1.3, bottom: 1.3, left: 1.1, right: 1.1 },
         },
         styles: {
           fontSize,
           cellPadding,
+          minCellHeight,
           textColor: [0, 0, 0],
           lineColor: LINE_BLACK,
           lineWidth: 0.42,
@@ -1053,17 +1122,18 @@ export function exportExamCardsPdf(
         },
       });
     } else {
-      // 16+ subjects: render two side-by-side tables so ALL subjects, hari & tanggal fit on 1 card cleanly
+      // Side-by-side 2 tables so many subjects still maintain 1.5 spasi & leave room for Headmaster stamp/TTD
       const half = Math.ceil(rowCount / 2);
       const leftItems = visibleSchedules.slice(0, half);
       const rightItems = visibleSchedules.slice(half);
       const innerPadX = 4.0;
       const gapMm = 2.5;
       const halfTableWidth = (cardWidth - innerPadX * 2 - gapMm) / 2;
-      const compactFont = rowCount > 24 ? 5.2 : 5.6;
-      const compactPad = rowCount > 24
-        ? { top: 0.5, bottom: 0.5, left: 0.7, right: 0.7 }
-        : { top: 0.65, bottom: 0.65, left: 0.85, right: 0.85 };
+      const compactFont = rowCount > 20 ? 5.6 : 6.0;
+      const compactMinH = rowCount > 20 ? 5.2 : 5.8;
+      const compactPad = rowCount > 20
+        ? { top: 1.15, bottom: 1.15, left: 0.85, right: 0.85 }
+        : { top: 1.45, bottom: 1.45, left: 0.9, right: 0.9 };
 
       const renderHalfTable = (
         items: ExamScheduleItem[],
@@ -1089,15 +1159,16 @@ export function exportExamCardsPdf(
             textColor: [255, 255, 255],
             lineColor: LINE_BLACK,
             lineWidth: 0.45,
-            fontSize: 5.9,
+            fontSize: 6.0,
             fontStyle: 'bold',
             halign: 'center',
             valign: 'middle',
-            cellPadding: { top: 1.0, bottom: 1.0, left: 0.8, right: 0.8 },
+            cellPadding: { top: 1.1, bottom: 1.1, left: 0.8, right: 0.8 },
           },
           styles: {
             fontSize: compactFont,
             cellPadding: compactPad,
+            minCellHeight: compactMinH,
             textColor: [0, 0, 0],
             lineColor: LINE_BLACK,
             lineWidth: 0.4,
@@ -1124,16 +1195,60 @@ export function exportExamCardsPdf(
       );
     }
 
-    // Dotted cutting line between cards
-    if (cardIndexOnPage === 0) {
-      const cutY = y + cardHeight + 4.5;
+    // Bottom Right Official Headmaster Signature + School Stamp on Exam Card
+    const sigCenterX = x + cardWidth - 36;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.1);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${cityLabel}, ${dateLabel}`, sigCenterX, sigTopY + 2.2, { align: 'center' });
+    doc.text('Kepala Sekolah,', sigCenterX, sigTopY + 5.5, { align: 'center' });
+
+    renderPdfStampAndSignature(doc, settings, 'headmaster', sigCenterX, sigTopY + 6.0, {
+      sigW: 28,
+      sigH: 12.5,
+      stampSize: 22.5,
+    });
+
+    const headmasterName = settings.headmaster || '-';
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.4);
+    doc.setTextColor(0, 0, 0);
+    doc.text(headmasterName, sigCenterX, sigTopY + 19.3, { align: 'center' });
+    const nameWidth = doc.getTextWidth(headmasterName);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.25);
+    doc.line(
+      sigCenterX - nameWidth / 2,
+      sigTopY + 19.9,
+      sigCenterX + nameWidth / 2,
+      sigTopY + 19.9
+    );
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.6);
+    doc.setTextColor(51, 65, 85);
+    doc.text(`NIP. ${settings.headmasterNip || '-'}`, sigCenterX, sigTopY + 22.8, {
+      align: 'center',
+    });
+
+    cardsOnCurrentPage += 1;
+    usedHeightOnCurrentPage = (y - topY0) + cardHeight;
+
+    // Dotted cutting line between 2 cards on the same page
+    if (!useFullPageCard && cardsOnCurrentPage === 1 && index < filteredStudents.length - 1) {
+      const cutY = y + cardHeight + 3.0;
       doc.setLineDashPattern([1.5, 1.5], 0);
       doc.setDrawColor(100, 116, 139);
       doc.setLineWidth(0.3);
       doc.line(x - 5, cutY, x + cardWidth + 5, cutY);
-      doc.setFontSize(6.2);
+      doc.setFontSize(6.0);
       doc.setTextColor(100, 116, 139);
-      doc.text('- - - - - - - - - - - - - - - - - - Gunting Di Sini - - - - - - - - - - - - - - - - - -', pageWidth / 2, cutY + 2, { align: 'center' });
+      doc.text(
+        '- - - - - - - - - - - - - - - - - - Gunting Di Sini - - - - - - - - - - - - - - - - - -',
+        pageWidth / 2,
+        cutY + 1.8,
+        { align: 'center' }
+      );
       doc.setLineDashPattern([], 0);
     }
   });
@@ -1547,6 +1662,7 @@ export function exportSchedulePdf(
   // Left: Mengetahui Kepala Sekolah
   doc.text('Mengetahui,', sigColLeft, sigY, { align: 'center' });
   doc.text('Kepala Sekolah', sigColLeft, sigY + 5, { align: 'center' });
+  renderPdfStampAndSignature(doc, settings, 'headmaster', sigColLeft, sigY + 7);
   doc.setFont('helvetica', 'bold');
   doc.text(settings.headmaster, sigColLeft, sigY + 25, { align: 'center' });
   doc.setFont('helvetica', 'normal');
@@ -1559,6 +1675,7 @@ export function exportSchedulePdf(
   doc.setFontSize(8.5);
   doc.text(`${schedCity}, ${todayStr}`, sigColRight, sigY, { align: 'center' });
   doc.text('Ketua Panitia Ujian', sigColRight, sigY + 5, { align: 'center' });
+  renderPdfStampAndSignature(doc, settings, 'committee', sigColRight, sigY + 7);
   doc.setFont('helvetica', 'bold');
   doc.text(settings.committeeHead, sigColRight, sigY + 25, { align: 'center' });
   doc.setFont('helvetica', 'normal');
@@ -1902,6 +2019,7 @@ export function exportCirculationPdf(
 
   doc.text('Mengetahui,', sigColLeft, nextY, { align: 'center' });
   doc.text('Kepala Sekolah', sigColLeft, nextY + 4.5, { align: 'center' });
+  renderPdfStampAndSignature(doc, settings, 'headmaster', sigColLeft, nextY + 6);
   doc.setFont('helvetica', 'bold');
   doc.text(settings.headmaster, sigColLeft, nextY + 21, { align: 'center' });
   doc.setFont('helvetica', 'normal');
@@ -1913,6 +2031,7 @@ export function exportCirculationPdf(
   doc.setFontSize(8.5);
   doc.text(`${circCity}, ${todayStr}`, sigColRight, nextY, { align: 'center' });
   doc.text('Ketua Panitia Ujian', sigColRight, nextY + 4.5, { align: 'center' });
+  renderPdfStampAndSignature(doc, settings, 'committee', sigColRight, nextY + 6);
   doc.setFont('helvetica', 'bold');
   doc.text(settings.committeeHead, sigColRight, nextY + 21, { align: 'center' });
   doc.setFont('helvetica', 'normal');
@@ -2068,6 +2187,7 @@ function renderDailyJournalPage(
   doc.setTextColor(0, 0, 0);
   doc.text(`${cityLabel}, ${dateLine}`, sigX, curY);
   doc.text('Kepala Sekolah', sigX, curY + 4.5);
+  renderPdfStampAndSignature(doc, settings, 'headmaster', sigX + 16, curY + 6.5);
 
   doc.setFont('helvetica', 'bold');
   doc.text(settings.headmaster, sigX, curY + 23);
@@ -2721,6 +2841,7 @@ export function exportDistributionMatrixPdf(
 
   doc.text('Mengetahui,', sigColLeft, nextY, { align: 'center' });
   doc.text('Kepala Sekolah', sigColLeft, nextY + 4.5, { align: 'center' });
+  renderPdfStampAndSignature(doc, settings, 'headmaster', sigColLeft, nextY + 6);
   doc.setFont('helvetica', 'bold');
   doc.text(settings.headmaster, sigColLeft, nextY + 21, { align: 'center' });
   doc.setFont('helvetica', 'normal');
@@ -2730,6 +2851,7 @@ export function exportDistributionMatrixPdf(
   doc.setFontSize(8.5);
   doc.text(`${cityLabel}, ${dateLabel}`, sigColRight, nextY, { align: 'center' });
   doc.text('Ketua Panitia Ujian', sigColRight, nextY + 4.5, { align: 'center' });
+  renderPdfStampAndSignature(doc, settings, 'committee', sigColRight, nextY + 6);
   doc.setFont('helvetica', 'bold');
   doc.text(settings.committeeHead, sigColRight, nextY + 21, { align: 'center' });
   doc.setFont('helvetica', 'normal');
@@ -2880,6 +3002,7 @@ export function exportInvigilatorSchedulePdf(
 
   doc.text('Mengetahui,', sigColLeft, nextY, { align: 'center' });
   doc.text('Kepala Sekolah', sigColLeft, nextY + 4.5, { align: 'center' });
+  renderPdfStampAndSignature(doc, settings, 'headmaster', sigColLeft, nextY + 6);
   doc.setFont('helvetica', 'bold');
   doc.text(settings.headmaster, sigColLeft, nextY + 21, { align: 'center' });
   doc.setFont('helvetica', 'normal');
@@ -2889,6 +3012,7 @@ export function exportInvigilatorSchedulePdf(
   doc.setFontSize(8.5);
   doc.text(`${cityLabel}, ${dateLabel}`, sigColRight, nextY, { align: 'center' });
   doc.text('Ketua Panitia Ujian', sigColRight, nextY + 4.5, { align: 'center' });
+  renderPdfStampAndSignature(doc, settings, 'committee', sigColRight, nextY + 6);
   doc.setFont('helvetica', 'bold');
   doc.text(settings.committeeHead, sigColRight, nextY + 21, { align: 'center' });
   doc.setFont('helvetica', 'normal');
@@ -3060,6 +3184,7 @@ export function exportInvigilatorAttendancePdf(
     doc.setTextColor(0, 0, 0);
     doc.text(`${cityLabel}, ${dateLabel}`, sigX, nextY, { align: 'center' });
     doc.text('Ketua Panitia Ujian,', sigX, nextY + 4.5, { align: 'center' });
+    renderPdfStampAndSignature(doc, settings, 'committee', sigX, nextY + 6);
     doc.setFont('helvetica', 'bold');
     doc.text(settings.committeeHead, sigX, nextY + 20, { align: 'center' });
     doc.setFont('helvetica', 'normal');
@@ -3251,6 +3376,7 @@ export function exportInvigilatorAttendancePdf(
       align: 'center',
     });
     doc.text('Ketua Panitia Ujian,', sigX, nextY + 5, { align: 'center' });
+    renderPdfStampAndSignature(doc, settings, 'committee', sigX, nextY + 6.5);
     doc.setFont('helvetica', 'bold');
     doc.text(settings.committeeHead, sigX, nextY + 22, { align: 'center' });
     doc.setFont('helvetica', 'normal');

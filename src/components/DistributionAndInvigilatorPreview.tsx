@@ -9,6 +9,7 @@ import {
   getRoomDaySessionInvigilator,
   getSessionDisplayLabel,
 } from '../utils/examDocuments';
+import { OfficialSignatureGraphic } from './OfficialSignatureGraphic';
 
 export type InvigilatorSubMode = 'schedule' | 'attendance-multi' | 'attendance-day';
 
@@ -198,7 +199,11 @@ export const DistributionMatrixSheet: React.FC<DistributionMatrixSheetProps> = (
         <div>
           <p>Mengetahui,</p>
           <p className="font-semibold">Kepala Sekolah</p>
-          <div className="h-14" />
+          <OfficialSignatureGraphic
+            signatureUrl={settings.headmasterSignature}
+            stampUrl={settings.schoolStamp}
+            heightClass="h-14"
+          />
           <p className="font-bold underline">{settings.headmaster}</p>
           <p className="text-2xs font-mono">NIP. {settings.headmasterNip || '-'}</p>
         </div>
@@ -208,7 +213,10 @@ export const DistributionMatrixSheet: React.FC<DistributionMatrixSheetProps> = (
             {cityLabel}, {dateLabel}
           </p>
           <p className="font-semibold">Ketua Panitia Ujian</p>
-          <div className="h-14" />
+          <OfficialSignatureGraphic
+            signatureUrl={settings.committeeSignature}
+            heightClass="h-14"
+          />
           <p className="font-bold underline">{settings.committeeHead}</p>
           <p className="text-2xs font-mono">NIP. {settings.committeeNip || '-'}</p>
         </div>
@@ -423,7 +431,11 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
           <div>
             <p>Mengetahui,</p>
             <p className="font-semibold">Kepala Sekolah</p>
-            <div className="h-14" />
+            <OfficialSignatureGraphic
+              signatureUrl={settings.headmasterSignature}
+              stampUrl={settings.schoolStamp}
+              heightClass="h-14"
+            />
             <p className="font-bold underline">{settings.headmaster}</p>
             <p className="text-2xs font-mono">NIP. {settings.headmasterNip || '-'}</p>
           </div>
@@ -433,7 +445,10 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
               {cityLabel}, {dateLabel}
             </p>
             <p className="font-semibold">Ketua Panitia Ujian</p>
-            <div className="h-14" />
+            <OfficialSignatureGraphic
+              signatureUrl={settings.committeeSignature}
+              heightClass="h-14"
+            />
             <p className="font-bold underline">{settings.committeeHead}</p>
             <p className="text-2xs font-mono">NIP. {settings.committeeNip || '-'}</p>
           </div>
@@ -559,7 +574,11 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
               {cityLabel}, {dateLabel}
             </p>
             <p className="font-semibold">Ketua Panitia Ujian,</p>
-            <div className="h-14" />
+            <OfficialSignatureGraphic
+              signatureUrl={settings.committeeSignature}
+              stampUrl={settings.schoolStamp}
+              heightClass="h-14"
+            />
             <p className="font-bold underline">{settings.committeeHead}</p>
             <p className="text-2xs font-mono">NIP. {settings.committeeNip || '-'}</p>
           </div>
@@ -713,7 +732,11 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
             {cityLabel}, {(settings.signatureDate || '').trim() || activeDay?.date || dateLabel}
           </p>
           <p className="font-semibold">Ketua Panitia Ujian,</p>
-          <div className="h-14" />
+          <OfficialSignatureGraphic
+            signatureUrl={settings.committeeSignature}
+            stampUrl={settings.schoolStamp}
+            heightClass="h-14"
+          />
           <p className="font-bold underline">{settings.committeeHead}</p>
           <p className="text-2xs font-mono">NIP. {settings.committeeNip || '-'}</p>
         </div>

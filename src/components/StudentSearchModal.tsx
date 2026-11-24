@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { Search, MapPin, Armchair, CreditCard, User, Building2, CheckCircle2, Download, Calendar, Printer } from 'lucide-react';
 import { Student, Room, ExamSettings, ExamScheduleItem } from '../types';
 import { exportSingleStudentCardPdf } from '../utils/exportPdf';
-import { getSchedulesForStudentCard } from '../utils/examDocuments';
+import {
+  extractCityFromSettings,
+  extractSignatureDateFromSettings,
+  getSchedulesForStudentCard,
+} from '../utils/examDocuments';
+import { OfficialSignatureGraphic } from './OfficialSignatureGraphic';
 
 interface StudentSearchModalProps {
   isOpen: boolean;
@@ -117,8 +122,8 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
                 <span className="font-mono text-slate-500">{matchedStudent.participantNo || 'NO. PESERTA BELUM DISET'}</span>
               </div>
 
-              {/* Card Body */}
-              <div className="p-4 space-y-4">
+              {/* Card Body (1,5 Spasi) */}
+              <div className="p-4 space-y-5">
                 {matchedStudent.roomId ? (
                   <>
                     <div className="grid grid-cols-2 gap-3">
@@ -147,7 +152,7 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs pt-1 border-t border-slate-100">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 leading-relaxed text-xs pt-1 border-t border-slate-100">
                       <div className="flex justify-between py-0.5">
                         <span className="text-slate-500">Kelas / Rombel:</span>
                         <span className="font-semibold text-slate-900">{matchedStudent.className}</span>
@@ -168,41 +173,60 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Schedule on card */}
+                    {/* Schedule on card (1.5 spasi) */}
                     <div className="pt-2 border-t border-slate-200">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-2xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                           <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                          Jadwal Ujian & Kolom Paraf Pengawas
+                          Jadwal Ujian &amp; Kolom Paraf Pengawas
                         </span>
                         <span className="text-3xs text-slate-400">Wajib diparaf saat ujian berlangsung</span>
                       </div>
 
                       <div className="border-2 border-slate-900 rounded-md overflow-hidden text-2xs">
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full text-left border-collapse leading-relaxed">
                           <thead className="bg-slate-900 text-white font-semibold">
                             <tr>
-                              <th className="py-1.5 px-2 w-7 text-center border-b border-r border-slate-700">No</th>
-                              <th className="py-1.5 px-2 border-b border-r border-slate-700">Hari &amp; Tanggal</th>
-                              <th className="py-1.5 px-2 w-24 text-center border-b border-r border-slate-700">Waktu</th>
-                              <th className="py-1.5 px-2 border-b border-r border-slate-700">Mata Pelajaran</th>
-                              <th className="py-1.5 px-2 w-16 text-center border-b border-slate-700">Paraf</th>
+                              <th className="py-2 px-2 w-7 text-center border-b border-r border-slate-700">No</th>
+                              <th className="py-2 px-2 border-b border-r border-slate-700">Hari &amp; Tanggal</th>
+                              <th className="py-2 px-2 w-24 text-center border-b border-r border-slate-700">Waktu</th>
+                              <th className="py-2 px-2 border-b border-r border-slate-700">Mata Pelajaran</th>
+                              <th className="py-2 px-2 w-16 text-center border-b border-slate-700">Paraf</th>
                             </tr>
                           </thead>
                           <tbody className="font-mono">
                             {getSchedulesForStudentCard(matchedStudent, schedules).map((sch, i) => (
                               <tr key={sch.id} className="hover:bg-slate-50 border-b border-slate-900 last:border-b-0">
-                                <td className="py-1.5 px-2 text-center font-bold text-slate-700 border-r border-slate-900">{i + 1}</td>
-                                <td className="py-1.5 px-2 font-sans font-medium text-slate-900 border-r border-slate-900 whitespace-nowrap">
+                                <td className="py-2.5 px-2 text-center font-bold text-slate-700 border-r border-slate-900">{i + 1}</td>
+                                <td className="py-2.5 px-2 font-sans font-medium text-slate-900 border-r border-slate-900 whitespace-nowrap">
                                   {sch.day}, {sch.date}
                                 </td>
-                                <td className="py-1.5 px-2 text-center text-slate-700 text-3xs border-r border-slate-900 whitespace-nowrap">{sch.time}</td>
-                                <td className="py-1.5 px-2 font-sans font-semibold text-slate-950 border-r border-slate-900">{sch.subject}</td>
-                                <td className="py-1.5 px-2 text-center">&nbsp;</td>
+                                <td className="py-2.5 px-2 text-center text-slate-700 text-3xs border-r border-slate-900 whitespace-nowrap">{sch.time}</td>
+                                <td className="py-2.5 px-2 font-sans font-semibold text-slate-950 border-r border-slate-900">{sch.subject}</td>
+                                <td className="py-2.5 px-2 text-center">&nbsp;</td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
+                      </div>
+                    </div>
+
+                    {/* Headmaster Signature & School Stamp */}
+                    <div className="pt-2 flex justify-end">
+                      <div className="w-56 text-center text-2xs text-black leading-snug">
+                        <p className="text-slate-700">
+                          {extractCityFromSettings(settings)}, {extractSignatureDateFromSettings(settings)}
+                        </p>
+                        <p className="font-semibold">Kepala Sekolah,</p>
+                        <OfficialSignatureGraphic
+                          signatureUrl={settings.headmasterSignature}
+                          stampUrl={settings.schoolStamp}
+                          heightClass="h-12"
+                        />
+                        <p className="font-bold underline text-xs">{settings.headmaster || '-'}</p>
+                        <p className="text-2xs font-mono text-slate-700">
+                          NIP. {settings.headmasterNip || '-'}
+                        </p>
                       </div>
                     </div>
                   </>

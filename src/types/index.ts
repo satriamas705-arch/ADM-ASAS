@@ -95,6 +95,11 @@ export interface ExamSettings {
   // Warna Kartu Meja Tiap Kelas (key: className, value: color preset id)
   classColors?: Record<string, string>;
 
+  // Upload Tanda Tangan Pejabat & Stempel Sekolah (Data URL gambar)
+  headmasterSignature?: string;
+  committeeSignature?: string;
+  schoolStamp?: string;
+
   // Pilihan Ukuran Kertas Cetak (PDF & Print)
   paperSize?: PaperSize;
 }
