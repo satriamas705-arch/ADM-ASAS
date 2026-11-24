@@ -497,12 +497,6 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                   Nama Pengawas Ruang
                 </th>
                 <th
-                  rowSpan={2}
-                  className="border border-black px-2 py-2 text-center min-w-[85px]"
-                >
-                  Ruang Tugas
-                </th>
-                <th
                   colSpan={Math.max(1, dayGroups.length)}
                   className="border border-black px-2 py-1.5 text-center"
                 >
@@ -537,9 +531,6 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                       </span>
                     )}
                   </td>
-                  <td className="border border-black px-2 py-2 text-center font-mono">
-                    {item.roomLabels.join(', ')}
-                  </td>
                   {dayGroups.map((dg) => {
                     const assignedCodes = item.dayRoomMap[dg.dayKey];
                     if (!assignedCodes || assignedCodes.length === 0) {
@@ -568,7 +559,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                 </tr>
               ))}
               <tr className="border-t-2 border-t-black bg-slate-50 font-bold">
-                <td colSpan={3} className="border border-black px-2 py-2 text-center">
+                <td colSpan={2} className="border border-black px-2 py-2 text-center">
                   Jumlah Pengawas Hadir
                 </td>
                 {dayGroups.map((dg) => (
@@ -576,7 +567,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                 ))}
               </tr>
               <tr className="bg-white font-bold">
-                <td colSpan={3} className="border border-black px-2 py-3 text-center">
+                <td colSpan={2} className="border border-black px-2 py-3 text-center">
                   Paraf Ketua Panitia
                 </td>
                 {dayGroups.map((dg) => (

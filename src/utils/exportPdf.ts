@@ -3217,7 +3217,6 @@ export function exportInvigilatorAttendancePdf(
       [
         { content: 'No', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
         { content: 'Nama Pengawas Ruang', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'Ruang Tugas', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
         {
           content: 'Hari, Tanggal & Tanda Tangan Kehadiran',
           colSpan: daysCount,
@@ -3234,7 +3233,6 @@ export function exportInvigilatorAttendancePdf(
     const body: any[] = invigilatorRows.map((item, idx) => [
       idx + 1,
       item.nip ? `${item.name}\nNIP. ${item.nip}` : item.name,
-      item.roomLabels.join(', '),
       ...dayGroups.map((dg) => {
         const assignedCodes = item.dayRoomMap[dg.dayKey];
         if (!assignedCodes || assignedCodes.length === 0) {
@@ -3260,7 +3258,7 @@ export function exportInvigilatorAttendancePdf(
     body.push([
       {
         content: 'Jumlah Pengawas Hadir',
-        colSpan: 3,
+        colSpan: 2,
         styles: { halign: 'center', fontStyle: 'bold' },
       },
       ...dayGroups.map(() => ''),
@@ -3269,24 +3267,23 @@ export function exportInvigilatorAttendancePdf(
     body.push([
       {
         content: 'Paraf Ketua Panitia',
-        colSpan: 3,
+        colSpan: 2,
         styles: { halign: 'center', fontStyle: 'bold', minCellHeight: 10 },
       },
       ...dayGroups.map(() => ({ content: '', styles: { minCellHeight: 10 } })),
     ]);
 
     const printableW = pageWidth - 28;
-    const fixedW = 9 + 54 + 28; // 91mm
+    const fixedW = 9 + 60; // 69mm
     const dayColW = Math.max(22, (printableW - fixedW) / daysCount);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const colStyles: Record<number, any> = {
       0: { halign: 'center', cellWidth: 9 },
-      1: { halign: 'left', fontStyle: 'bold', cellWidth: 54 },
-      2: { halign: 'center', cellWidth: 28 },
+      1: { halign: 'left', fontStyle: 'bold', cellWidth: 60 },
     };
     dayGroups.forEach((_, i) => {
-      colStyles[3 + i] = { halign: 'center', cellWidth: dayColW };
+      colStyles[2 + i] = { halign: 'center', cellWidth: dayColW };
     });
 
     autoTable(doc, {
