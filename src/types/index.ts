@@ -40,6 +40,8 @@ export interface DailyRoomInvigilatorAssignment {
   invigilator2?: string;
 }
 
+export type PaperSize = 'a4' | 'f4' | 'legal' | 'letter';
+
 export interface ExamSettings {
   // Kop Surat Identitas
   governmentName: string;
@@ -61,11 +63,13 @@ export interface ExamSettings {
   participantPrefix: string;
   sortMethod: SortMethod;
 
-  // Pejabat Penandatangan
+  // Pejabat Penandatangan, Tempat & Tanggal Dokumen
   headmaster: string;
   headmasterNip: string;
   committeeHead: string;
   committeeNip: string;
+  signatureCity?: string;
+  signatureDate?: string;
 
   // Aturan Kursi Ruang & Banyaknya Ruang
   defaultRoomCapacity: number;
@@ -77,8 +81,11 @@ export interface ExamSettings {
   roomDistributionMode?: 'fill-first' | 'even-distribution';
   invigilatorsPerRoom?: number;
 
-  // Daftar Pengawas Per Hari Per Ruang (key: `${roomId}::${dayKey}`)
+  // Daftar Pengawas Per Hari Per Ruang (legacy / fallback, key: `${roomId}::${dayKey}`)
   dailyInvigilators?: Record<string, DailyRoomInvigilatorAssignment>;
+
+  // Daftar Pengawas Per Hari Per Ruang Per Sesi (key: `${roomId}::${dayKey}::${scheduleId}`)
+  sessionInvigilators?: Record<string, string>;
 
   // Konfigurasi Pembagian Berdasarkan Urutan Kelas
   customClassOrder?: string[];
@@ -87,6 +94,9 @@ export interface ExamSettings {
 
   // Warna Kartu Meja Tiap Kelas (key: className, value: color preset id)
   classColors?: Record<string, string>;
+
+  // Pilihan Ukuran Kertas Cetak (PDF & Print)
+  paperSize?: PaperSize;
 }
 
 export interface AllocationSummary {
@@ -159,6 +169,7 @@ export interface HandoverBeritaAcaraRecord {
   sealStatusIn: string;        // Kondisi berkas saat dikembalikan
   notesOut: string;
   notesIn: string;
+  sessionInvigilators?: Record<string, string>;
   sessions: Record<string, HandoverSessionEntry>;
 }
 

@@ -23,8 +23,10 @@ import {
 } from '../types';
 import {
   extractCityFromSettings,
+  extractSignatureDateFromSettings,
   formatRoomNumberLabel,
-  getRoomDayInvigilators,
+  getRoomDaySessionInvigilator,
+  getRoomDaySessionSummaryLabel,
 } from '../utils/examDocuments';
 
 interface JournalControlBarProps {
@@ -84,8 +86,8 @@ export const JournalControlBar: React.FC<JournalControlBarProps> = ({
   const handleFillDefaultInvigilator = () => {
     const updatedSessions = { ...record.sessions };
     for (const dg of dayGroups) {
-      const dayInv = getRoomDayInvigilators(room, dg.dayKey, settings);
       for (const sch of dg.sessions) {
+        const sessInv = getRoomDaySessionInvigilator(room, dg.dayKey, sch.id, settings);
         const existing = updatedSessions[sch.id] || {
           scheduleId: sch.id,
           invigilatorName: '',
@@ -96,7 +98,7 @@ export const JournalControlBar: React.FC<JournalControlBarProps> = ({
         };
         updatedSessions[sch.id] = {
           ...existing,
-          invigilatorName: dayInv.invigilator1 || '',
+          invigilatorName: sessInv || '',
         };
       }
     }
@@ -125,7 +127,7 @@ export const JournalControlBar: React.FC<JournalControlBarProps> = ({
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-3.5 space-y-3">
+    <div className="print:hidden bg-white border border-slate-200 rounded-lg p-3.5 space-y-3">
       {/* Row 1: Summary & Mode Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-700">
@@ -190,10 +192,10 @@ export const JournalControlBar: React.FC<JournalControlBarProps> = ({
                 type="button"
                 onClick={handleFillDefaultInvigilator}
                 className="flex items-center gap-1 px-2.5 py-1 text-2xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 rounded-md transition-colors"
-                title="Isi kolom Nama Pengawas seluruh mapel sesuai jadwal Pengawas Per Hari & Ruang"
+                title="Isi kolom Nama Pengawas seluruh mapel sesuai jadwal Pengawas Per Hari, Ruang & Sesi"
               >
                 <UserCheck className="w-3 h-3" />
-                <span>Isi Pengawas Per Hari Otomatis</span>
+                <span>Isi Pengawas Per Sesi Otomatis</span>
               </button>
               <button
                 type="button"
@@ -424,7 +426,7 @@ export const HandoverControlBar: React.FC<HandoverControlBarProps> = ({
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-3.5 space-y-3">
+    <div className="print:hidden bg-white border border-slate-200 rounded-lg p-3.5 space-y-3">
       {/* Row 1: Day Selector + Direction Switcher */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -803,7 +805,9 @@ export const ExamJournalSheet: React.FC<ExamJournalSheetProps> = ({
   blankMode,
 }) => {
   const cityLabel = (record.signatureCity || extractCityFromSettings(settings)).trim();
-  const dateLine = (record.signatureDateText || '_____________________').trim();
+  const dateLine = (
+    record.signatureDateText || extractSignatureDateFromSettings(settings, '_____________________')
+  ).trim();
 
   return (
     <div className="space-y-3 text-black">
@@ -966,8 +970,12 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
     'to-committee': 'BERITA ACARA PENGEMBALIAN BERKAS (PENGAWAS KE PANITIA)',
   };
 
-  const dayInv = getRoomDayInvigilators(room, dayGroup.dayKey, settings);
-  const invigilatorLabel = record.invigilator1 || dayInv.invigilator1;
+  const dayInvSummary = getRoomDaySessionSummaryLabel(room, dayGroup, settings);
+  const invigilatorLabel = record.invigilator1 || dayInvSummary;
+  const resolveSessInv = (scheduleId: string) =>
+    record.sessionInvigilators?.[scheduleId] !== undefined
+      ? record.sessionInvigilators[scheduleId]
+      : getRoomDaySessionInvigilator(room, dayGroup.dayKey, scheduleId, settings);
 
   return (
     <div className="space-y-4">
@@ -1047,6 +1055,11 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
                         </td>
                         <td className="py-1.5 px-2 font-bold text-slate-950 border-r border-slate-800">
                           {sch.subject}
+                          {!blankMode && resolveSessInv(sch.id) && dayGroup.sessions.length > 1 && (
+                            <span className="block text-[10px] font-normal text-slate-600">
+                              Pengawas: {resolveSessInv(sch.id)}
+                            </span>
+                          )}
                         </td>
                         <td className="py-1.5 px-2 text-center font-mono font-bold border-r border-slate-800">
                           {blankMode ? '' : entry?.questionCopies || fallbackCopies}
@@ -1135,6 +1148,11 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
                         </td>
                         <td className="py-1.5 px-2 font-bold text-slate-950 border-r border-slate-800">
                           {sch.subject}
+                          {!blankMode && resolveSessInv(sch.id) && dayGroup.sessions.length > 1 && (
+                            <span className="block text-[10px] font-normal text-slate-600">
+                              Pengawas: {resolveSessInv(sch.id)}
+                            </span>
+                          )}
                         </td>
                         <td className="py-1.5 px-2 text-center font-mono font-bold border-r border-slate-800">
                           {blankMode ? '' : entry?.returnedFilledSheets || '......'}
@@ -1181,6 +1199,9 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
 
       {/* Final Sign-off by Ketua Panitia */}
       <div className="pt-3 border-t border-slate-800 text-center text-2xs text-slate-900">
+        <p className="text-slate-700">
+          {extractCityFromSettings(settings)}, {extractSignatureDateFromSettings(settings)}
+        </p>
         <p className="text-slate-700">Mengetahui & Mengesahkan,</p>
         <p className="font-bold text-xs">Ketua Panitia Ujian</p>
         <div className="h-12" />

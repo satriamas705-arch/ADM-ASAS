@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { Student, Room, ExamSettings } from '../types';
 import { exportAttendancePdfForRoom, exportDoorPosterPdf } from '../utils/exportPdf';
+import { getClassColorTheme } from '../utils/classColors';
+import { getOrderedClassNames } from '../utils/examDocuments';
 
 interface RoomSeatingMapProps {
   rooms: Room[];
@@ -43,6 +45,7 @@ export const RoomSeatingMap: React.FC<RoomSeatingMapProps> = ({
   }
 
   // Get students in this room, sorted by seatNumber
+  const orderedClasses = getOrderedClassNames(students, settings.customClassOrder);
   const roomStudents = students.filter((s) => s.roomId === currentRoom.id);
   const studentBySeatMap = new Map<number, Student>();
   roomStudents.forEach((st) => {
@@ -183,15 +186,23 @@ export const RoomSeatingMap: React.FC<RoomSeatingMapProps> = ({
                       const cls = s.className?.trim() || 'Tanpa Kelas';
                       map[cls] = (map[cls] || 0) + 1;
                     }
-                    return Object.entries(map).map(([className, count]) => (
-                      <span
-                        key={className}
-                        className="inline-flex items-center gap-1 text-2xs font-medium px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-900"
-                      >
-                        <span className="font-bold">{className}</span>
-                        <span className="text-indigo-600 font-mono">({count} siswa)</span>
-                      </span>
-                    ));
+                    return Object.entries(map).map(([className, count]) => {
+                      const theme = getClassColorTheme(
+                        className,
+                        orderedClasses,
+                        settings.classColors
+                      );
+                      return (
+                        <span
+                          key={className}
+                          className={`inline-flex items-center gap-1.5 text-2xs font-medium px-2 py-0.5 rounded border ${theme.badgeBgClass} ${theme.borderClass} ${theme.badgeTextClass}`}
+                        >
+                          <span className={`w-2 h-2 rounded-xs shrink-0 ${theme.swatchClass}`} />
+                          <span className="font-bold">{className}</span>
+                          <span className="opacity-80 font-mono">({count} siswa)</span>
+                        </span>
+                      );
+                    });
                   })()}
                 </div>
               )}
@@ -200,8 +211,12 @@ export const RoomSeatingMap: React.FC<RoomSeatingMapProps> = ({
 
           <div className="flex items-center gap-4 text-xs text-slate-600">
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-white border border-slate-300 inline-block" />
-              <span>Meja Terisi</span>
+              <span className="inline-flex items-center gap-0.5">
+                <span className="w-2 h-3 rounded-xs bg-blue-600 inline-block" />
+                <span className="w-2 h-3 rounded-xs bg-emerald-600 inline-block" />
+                <span className="w-2 h-3 rounded-xs bg-amber-500 inline-block" />
+              </span>
+              <span>Warna Tiap Kelas</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded bg-slate-50 border border-dashed border-slate-200 inline-block" />
@@ -249,29 +264,32 @@ export const RoomSeatingMap: React.FC<RoomSeatingMapProps> = ({
               const isSwapSource = swapSourceStudent?.id === student?.id;
 
               if (student) {
+                const theme = getClassColorTheme(
+                  student.className,
+                  orderedClasses,
+                  settings.classColors
+                );
                 return (
                   <div
                     key={seatNo}
                     onClick={() => handleSeatClick(student)}
-                    className={`relative p-3 rounded-lg border text-left cursor-pointer transition-all duration-150 ${
+                    className={`relative p-3 rounded-lg border-2 text-left cursor-pointer transition-all duration-150 ${
                       isSwapSource
                         ? 'bg-amber-100 border-amber-500 ring-2 ring-amber-500 shadow-sm'
                         : isSelected
-                        ? 'bg-slate-50 border-slate-900 ring-1 ring-slate-900 shadow-xs'
-                        : 'bg-white border-slate-200 hover:border-slate-400 hover:shadow-xs'
+                        ? `${theme.cardBgClass} border-slate-900 ring-2 ring-slate-900 shadow-xs`
+                        : `${theme.cardBgClass} ${theme.borderClass} hover:shadow-sm`
                     }`}
                   >
                     {/* Desk Number Badge */}
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="font-mono text-2xs font-bold px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded text-slate-700">
+                      <span
+                        className={`font-mono text-2xs font-bold px-1.5 py-0.5 rounded ${theme.seatBoxBgClass} ${theme.seatBoxTextClass}`}
+                      >
                         Meja {String(seatNo).padStart(2, '0')}
                       </span>
                       <span
-                        className={`text-2xs font-bold px-1 py-0.2 rounded font-mono ${
-                          student.gender === 'L'
-                            ? 'text-sky-700 bg-sky-50'
-                            : 'text-rose-700 bg-rose-50'
-                        }`}
+                        className={`text-2xs font-bold px-1.5 py-0.5 rounded font-mono ${theme.badgeBgClass} ${theme.badgeTextClass}`}
                       >
                         {student.gender}
                       </span>
@@ -279,21 +297,23 @@ export const RoomSeatingMap: React.FC<RoomSeatingMapProps> = ({
 
                     {/* Student Info */}
                     <div className="space-y-0.5">
-                      <p className="text-xs font-bold text-slate-900 truncate" title={student.name}>
+                      <p className="text-xs font-bold text-slate-950 truncate" title={student.name}>
                         {student.name}
                       </p>
-                      <div className="flex items-center justify-between text-2xs text-slate-500 font-mono">
+                      <div className="flex items-center justify-between text-2xs text-slate-700 font-mono gap-1">
                         <span>NIS: {student.nis}</span>
-                        <span className="font-sans font-medium text-slate-600 truncate max-w-[70px]">
+                        <span
+                          className={`font-sans font-bold px-1.5 py-0.5 rounded truncate max-w-[85px] ${theme.badgeBgClass} ${theme.badgeTextClass}`}
+                        >
                           {student.className}
                         </span>
                       </div>
                     </div>
 
-                    {/* Participant ID pill */}
-                    <div className="mt-2 pt-1.5 border-t border-slate-100 text-2xs text-slate-500 font-mono flex items-center justify-between">
-                      <span className="truncate">{student.participantNo}</span>
-                      <Maximize2 className="w-2.5 h-2.5 text-slate-400" />
+                    {/* Participant ID */}
+                    <div className="mt-2 pt-1.5 border-t border-slate-900/15 text-2xs text-slate-600 font-mono flex items-center justify-between">
+                      <span className="truncate font-semibold">{student.participantNo}</span>
+                      <Maximize2 className="w-2.5 h-2.5 text-slate-500" />
                     </div>
                   </div>
                 );

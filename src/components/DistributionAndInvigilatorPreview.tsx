@@ -5,7 +5,9 @@ import { buildRoomClassMatrix } from '../utils/circulation';
 import {
   buildUniqueInvigilatorsSummary,
   extractCityFromSettings,
-  getRoomDayInvigilators,
+  extractSignatureDateFromSettings,
+  getRoomDaySessionInvigilator,
+  getSessionDisplayLabel,
 } from '../utils/examDocuments';
 
 export type InvigilatorSubMode = 'schedule' | 'attendance-multi' | 'attendance-day';
@@ -27,7 +29,7 @@ export const DistributionMatrixSheet: React.FC<DistributionMatrixSheetProps> = (
   );
 
   const cityLabel = extractCityFromSettings(settings);
-  const dateLabel = settings.examDate.split('-')[0].trim() || '_____________________';
+  const dateLabel = extractSignatureDateFromSettings(settings);
 
   return (
     <div className="space-y-4 text-black">
@@ -312,15 +314,16 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
   InvigilatorScheduleAndAttendanceSheetProps
 > = ({ rooms, dayGroups, selectedDayGroup, settings, subMode }) => {
   const cityLabel = extractCityFromSettings(settings);
-  const dateLabel = settings.examDate.split('-')[0].trim() || '_____________________';
+  const dateLabel = extractSignatureDateFromSettings(settings);
 
   const uniqueInvigilators = React.useMemo(
     () => buildUniqueInvigilatorsSummary(rooms, dayGroups, settings),
     [rooms, dayGroups, settings]
   );
 
-  // MODE A: DAFTAR TUGAS PENGAWAS RUANG (RUANG x HARI)
+  // MODE A: DAFTAR TUGAS PENGAWAS RUANG (RUANG x HARI x SESI)
   if (subMode === 'schedule') {
+    const totalSessionsCount = dayGroups.reduce((acc, dg) => acc + dg.sessions.length, 0);
     return (
       <div className="space-y-4 text-black">
         <div className="text-center space-y-0.5">
@@ -335,23 +338,30 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
 
         <div className="border border-black bg-slate-50 px-3 py-2 text-2xs font-semibold text-center text-black">
           Jumlah Ruang: {rooms.length} Ruang &nbsp;|&nbsp; Jumlah Hari Ujian: {dayGroups.length}{' '}
-          Hari &nbsp;|&nbsp; Rasio: 1 Pengawas / Ruang &nbsp;|&nbsp; Sesi: {settings.examSession}
+          Hari ({totalSessionsCount} Sesi) &nbsp;|&nbsp; Rasio: 1 Pengawas / Ruang / Sesi
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full border-collapse border border-black text-2xs text-black">
             <thead>
               <tr className="bg-slate-800 text-white">
-                <th className="border border-black px-1.5 py-2 text-center w-8">No</th>
-                <th className="border border-black px-2 py-2 text-center w-14">Kode</th>
-                <th className="border border-black px-2 py-2 text-left min-w-[90px]">Nama Ruang</th>
-                <th className="border border-black px-2 py-2 text-left min-w-[90px]">
+                <th rowSpan={2} className="border border-black px-1.5 py-2 text-center w-8 align-middle">
+                  No
+                </th>
+                <th rowSpan={2} className="border border-black px-2 py-2 text-center w-14 align-middle">
+                  Kode
+                </th>
+                <th rowSpan={2} className="border border-black px-2 py-2 text-left min-w-[85px] align-middle">
+                  Nama Ruang
+                </th>
+                <th rowSpan={2} className="border border-black px-2 py-2 text-left min-w-[85px] align-middle">
                   Lokasi / Gedung
                 </th>
                 {dayGroups.map((dg) => (
                   <th
                     key={dg.dayKey}
-                    className="border border-black px-2 py-1.5 text-center min-w-[115px]"
+                    colSpan={Math.max(1, dg.sessions.length)}
+                    className="border border-black px-2 py-1 text-center"
                   >
                     <span className="block font-bold">Hari {dg.dayNumber}</span>
                     <span className="block font-normal text-[10px]">
@@ -359,6 +369,23 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                     </span>
                   </th>
                 ))}
+              </tr>
+              <tr className="bg-slate-700 text-white">
+                {dayGroups.map((dg) =>
+                  dg.sessions.map((sch, sIdx) => (
+                    <th
+                      key={`${dg.dayKey}-${sch.id}`}
+                      className="border border-black px-1.5 py-1 text-center min-w-[100px]"
+                    >
+                      <span className="block font-bold text-[10px]">
+                        {getSessionDisplayLabel(sch, sIdx)}
+                      </span>
+                      <span className="block font-normal text-[9px] text-slate-200 truncate max-w-[125px] mx-auto">
+                        {sch.subject}
+                      </span>
+                    </th>
+                  ))
+                )}
               </tr>
             </thead>
             <tbody>
@@ -372,15 +399,20 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                   </td>
                   <td className="border border-black px-2 py-2 font-bold">{room.name}</td>
                   <td className="border border-black px-2 py-2">{room.building}</td>
-                  {dayGroups.map((dg) => {
-                    const invName =
-                      getRoomDayInvigilators(room, dg.dayKey, settings).invigilator1 || '-';
-                    return (
-                      <td key={dg.dayKey} className="border border-black px-2 py-2 text-left">
-                        {invName}
-                      </td>
-                    );
-                  })}
+                  {dayGroups.map((dg) =>
+                    dg.sessions.map((sch) => {
+                      const invName =
+                        getRoomDaySessionInvigilator(room, dg.dayKey, sch.id, settings) || '-';
+                      return (
+                        <td
+                          key={`${dg.dayKey}-${sch.id}`}
+                          className="border border-black px-1.5 py-2 text-left"
+                        >
+                          {invName}
+                        </td>
+                      );
+                    })
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -536,11 +568,17 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
     );
   }
 
-  // MODE C: DAFTAR HADIR & TANDA TANGAN PENGAWAS PER HARI (PORTRAIT A4)
+  // MODE C: DAFTAR HADIR & TANDA TANGAN PENGAWAS PER HARI & SESI (PORTRAIT A4)
   const activeDay = selectedDayGroup || dayGroups[0];
+  const daySessions = activeDay?.sessions || [];
+  const hasMultipleSessions = daySessions.length > 1;
   const subjSummary = activeDay
-    ? activeDay.sessions.map((s) => `${s.subject} (${s.time})`).join('  |  ')
+    ? activeDay.sessions
+        .map((s, idx) => `${getSessionDisplayLabel(s, idx)}: ${s.subject} (${s.time})`)
+        .join('  |  ')
     : '-';
+
+  let rowCounter = 0;
 
   return (
     <div className="space-y-4 text-black">
@@ -564,53 +602,107 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
           </span>
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="w-28 font-semibold text-slate-700 shrink-0">Mata Pelajaran</span>
+          <span className="w-28 font-semibold text-slate-700 shrink-0">Sesi &amp; Mapel</span>
           <span>:</span>
           <span className="font-bold text-black">{subjSummary}</span>
         </div>
       </div>
 
-      {/* Per-Day Signature Table with crisp black grid */}
+      {/* Per-Day × Per-Session Signature Table with crisp black grid */}
       <table className="w-full border-collapse border border-black text-xs text-black">
         <thead>
           <tr className="bg-slate-800 text-white">
             <th className="border border-black px-2 py-2 text-center w-10">No</th>
             <th className="border border-black px-2 py-2 text-center w-16">Kode</th>
             <th className="border border-black px-2.5 py-2 text-left w-28">Ruang Ujian</th>
+            {hasMultipleSessions && (
+              <th className="border border-black px-2 py-2 text-left w-32">Sesi / Mapel</th>
+            )}
             <th className="border border-black px-2.5 py-2 text-left">Nama Pengawas Ruang</th>
-            <th className="border border-black px-2 py-2 text-center w-24">Jam Hadir</th>
-            <th className="border border-black px-2.5 py-2 text-center w-40">Tanda Tangan</th>
-            <th className="border border-black px-2 py-2 text-center w-16">Ket.</th>
+            <th className="border border-black px-2 py-2 text-center w-20">Jam Hadir</th>
+            <th className="border border-black px-2.5 py-2 text-center w-36">Tanda Tangan</th>
+            <th className="border border-black px-2 py-2 text-center w-14">Ket.</th>
           </tr>
         </thead>
         <tbody>
-          {rooms.map((room, idx) => {
-            const no = idx + 1;
-            const isOdd = no % 2 !== 0;
-            const invName = activeDay
-              ? getRoomDayInvigilators(room, activeDay.dayKey, settings).invigilator1 || '-'
-              : room.invigilator1 || '-';
-            return (
-              <tr key={room.id} className="bg-white">
-                <td className="border border-black px-2 py-2.5 text-center font-mono tabular-nums">
-                  {no}
-                </td>
-                <td className="border border-black px-2 py-2.5 text-center font-mono font-bold">
-                  {room.code}
-                </td>
-                <td className="border border-black px-2.5 py-2.5">{room.name}</td>
-                <td className="border border-black px-2.5 py-2.5 font-bold">{invName}</td>
-                <td className="border border-black px-2 py-2.5 text-center font-mono" />
-                <td
-                  className={`border border-black px-2.5 py-2.5 h-10 align-middle font-mono text-2xs ${
-                    isOdd ? 'text-left' : 'text-center'
-                  }`}
-                >
-                  {no}.
-                </td>
-                <td className="border border-black px-2 py-2.5 text-center" />
-              </tr>
-            );
+          {rooms.map((room) => {
+            if (!activeDay || daySessions.length === 0) {
+              rowCounter += 1;
+              const no = rowCounter;
+              const isOdd = no % 2 !== 0;
+              return (
+                <tr key={room.id} className="bg-white">
+                  <td className="border border-black px-2 py-2.5 text-center font-mono tabular-nums">
+                    {no}
+                  </td>
+                  <td className="border border-black px-2 py-2.5 text-center font-mono font-bold">
+                    {room.code}
+                  </td>
+                  <td className="border border-black px-2.5 py-2.5">{room.name}</td>
+                  <td className="border border-black px-2.5 py-2.5 font-bold">
+                    {room.invigilator1 || '-'}
+                  </td>
+                  <td className="border border-black px-2 py-2.5 text-center font-mono" />
+                  <td
+                    className={`border border-black px-2.5 py-2.5 h-10 align-middle font-mono text-2xs ${
+                      isOdd ? 'text-left' : 'text-center'
+                    }`}
+                  >
+                    {no}.
+                  </td>
+                  <td className="border border-black px-2 py-2.5 text-center" />
+                </tr>
+              );
+            }
+
+            return daySessions.map((sch, sIdx) => {
+              rowCounter += 1;
+              const no = rowCounter;
+              const isOdd = no % 2 !== 0;
+              const invName =
+                getRoomDaySessionInvigilator(room, activeDay.dayKey, sch.id, settings) || '-';
+              return (
+                <tr key={`${room.id}-${sch.id}`} className="bg-white">
+                  <td className="border border-black px-2 py-2 text-center font-mono tabular-nums">
+                    {no}
+                  </td>
+                  {sIdx === 0 && (
+                    <>
+                      <td
+                        rowSpan={daySessions.length}
+                        className="border border-black px-2 py-2 text-center font-mono font-bold align-middle"
+                      >
+                        {room.code}
+                      </td>
+                      <td
+                        rowSpan={daySessions.length}
+                        className="border border-black px-2.5 py-2 align-middle font-semibold"
+                      >
+                        {room.name}
+                      </td>
+                    </>
+                  )}
+                  {hasMultipleSessions && (
+                    <td className="border border-black px-2 py-2 text-2xs leading-tight">
+                      <span className="font-bold block">{getSessionDisplayLabel(sch, sIdx)}</span>
+                      <span className="text-slate-600 block truncate max-w-[125px]">
+                        {sch.subject}
+                      </span>
+                    </td>
+                  )}
+                  <td className="border border-black px-2.5 py-2 font-bold">{invName}</td>
+                  <td className="border border-black px-2 py-2 text-center font-mono" />
+                  <td
+                    className={`border border-black px-2.5 py-2 h-10 align-middle font-mono text-2xs ${
+                      isOdd ? 'text-left' : 'text-center'
+                    }`}
+                  >
+                    {no}.
+                  </td>
+                  <td className="border border-black px-2 py-2 text-center" />
+                </tr>
+              );
+            });
           })}
         </tbody>
       </table>
@@ -618,7 +710,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
       <div className="pt-6 flex justify-end text-xs text-center text-black pr-8">
         <div>
           <p>
-            {cityLabel}, {activeDay?.date || dateLabel}
+            {cityLabel}, {(settings.signatureDate || '').trim() || activeDay?.date || dateLabel}
           </p>
           <p className="font-semibold">Ketua Panitia Ujian,</p>
           <div className="h-14" />

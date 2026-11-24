@@ -22,7 +22,7 @@ export const Header: React.FC<HeaderProps> = ({
   isAllocated,
 }) => {
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-slate-200">
+    <header className="print:hidden sticky top-0 z-30 bg-white border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Top Bar Row */}
         <div className="flex items-center justify-between gap-6 h-16">

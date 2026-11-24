@@ -9,6 +9,7 @@ import {
   DailyRoomJournalRecord,
   HandoverBeritaAcaraRecord,
   HandoverDirectionMode,
+  PaperSize,
 } from '../types';
 import {
   buildRoomClassMatrix,
@@ -22,10 +23,13 @@ import {
   resolveJournalRecord,
   resolveHandoverRecord,
   extractCityFromSettings,
+  extractSignatureDateFromSettings,
   formatRoomNumberLabel,
   formatAttendanceTargetHeading,
   getStudentsForAttendanceTarget,
-  getRoomDayInvigilators,
+  getRoomDaySessionInvigilator,
+  getRoomDaySessionSummaryLabel,
+  getSessionDisplayLabel,
   getScheduleRoomInvigilators,
   getOrderedClassNames,
 } from './examDocuments';
@@ -36,6 +40,63 @@ const LINE_DARK: [number, number, number] = [15, 23, 42];
 const BOX_BORDER_DARK: [number, number, number] = [51, 65, 85];
 const GRID_LINE_WIDTH = 0.42;
 const HEAD_LINE_WIDTH = 0.45;
+
+export interface PaperSizeSpec {
+  id: PaperSize;
+  label: string;
+  shortLabel: string;
+  widthMm: number;
+  heightMm: number;
+}
+
+export const PAPER_SIZE_OPTIONS: Record<PaperSize, PaperSizeSpec> = {
+  a4: {
+    id: 'a4',
+    label: 'A4 (210 × 297 mm)',
+    shortLabel: 'A4',
+    widthMm: 210,
+    heightMm: 297,
+  },
+  f4: {
+    id: 'f4',
+    label: 'F4 / Folio (215 × 330 mm)',
+    shortLabel: 'F4 / Folio',
+    widthMm: 215,
+    heightMm: 330,
+  },
+  legal: {
+    id: 'legal',
+    label: 'Legal (216 × 356 mm)',
+    shortLabel: 'Legal',
+    widthMm: 215.9,
+    heightMm: 355.6,
+  },
+  letter: {
+    id: 'letter',
+    label: 'Letter / Kuarto (216 × 279 mm)',
+    shortLabel: 'Letter',
+    widthMm: 215.9,
+    heightMm: 279.4,
+  },
+};
+
+export function getPaperSizeSpec(paperSize?: PaperSize): PaperSizeSpec {
+  return PAPER_SIZE_OPTIONS[paperSize || 'a4'] || PAPER_SIZE_OPTIONS.a4;
+}
+
+export function createPdfDoc(
+  orientation: 'portrait' | 'landscape',
+  settings?: Pick<ExamSettings, 'paperSize'>
+): jsPDF {
+  const spec = getPaperSizeSpec(settings?.paperSize);
+  const format: [number, number] =
+    orientation === 'landscape' ? [spec.heightMm, spec.widthMm] : [spec.widthMm, spec.heightMm];
+  return new jsPDF({
+    orientation,
+    unit: 'mm',
+    format,
+  });
+}
 
 /**
  * Creates official header (Kop Surat) on jsPDF document
@@ -148,7 +209,9 @@ function renderAttendancePage(
   const subjectText =
     options?.subjectText?.trim() || '........................................';
   const cityLabel = (options?.cityLabel || extractCityFromSettings(settings)).trim();
-  const dateLine = (options?.dateLine || '_____________________').trim();
+  const dateLine = (
+    options?.dateLine || extractSignatureDateFromSettings(settings, '_____________________')
+  ).trim();
   const resolvedDailyInv =
     !options?.invigilatorName?.trim() &&
     options?.useDailyInvigilators &&
@@ -180,19 +243,19 @@ function renderAttendancePage(
   doc.setFontSize(target.mode === 'per-room-class' ? 12 : 13);
   doc.text(targetHeading, pageWidth / 2, 30, { align: 'center' });
 
-  // Metadata rows (Hari, tanggal & Mata Pelajaran) with underline
+  // Metadata rows (Hari, tanggal & Mata Pelajaran) with 2-spasi vertical spacing
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(9.2);
   doc.setDrawColor(...LINE_BLACK);
   doc.setLineWidth(0.45);
 
   doc.text('Hari, tanggal', 14, 39);
   doc.text(`: ${dayDateText}`, 46, 39);
-  doc.line(46, 40.3, 108, 40.3);
+  doc.line(46, 40.6, 114, 40.6);
 
-  doc.text('Mata Pelajaran', 14, 45);
-  doc.text(`: ${subjectText}`, 46, 45);
-  doc.line(46, 46.3, 108, 46.3);
+  doc.text('Mata Pelajaran', 14, 47);
+  doc.text(`: ${subjectText}`, 46, 47);
+  doc.line(46, 48.6, 114, 48.6);
 
   // Table rows
   const defaultRowsFallback =
@@ -230,7 +293,7 @@ function renderAttendancePage(
   ]);
 
   autoTable(doc, {
-    startY: 50,
+    startY: 53,
     margin: { left: 14, right: 14 },
     head: [['No', 'No. Peserta', 'Nama Peserta', 'Tanda Tangan', 'Nilai']],
     body: bodyRows,
@@ -240,15 +303,16 @@ function renderAttendancePage(
       textColor: [0, 0, 0],
       lineColor: LINE_BLACK,
       lineWidth: HEAD_LINE_WIDTH,
-      fontSize: 8.5,
+      fontSize: 8.8,
       fontStyle: 'bold',
       halign: 'center',
       valign: 'middle',
-      cellPadding: 2,
+      cellPadding: { top: 2.8, bottom: 2.8, left: 2, right: 2 },
     },
     styles: {
-      fontSize: 8.2,
-      cellPadding: 1.7,
+      fontSize: 8.5,
+      cellPadding: { top: 3.1, bottom: 3.1, left: 2, right: 2 },
+      minCellHeight: 9.8,
       textColor: [0, 0, 0],
       lineColor: LINE_BLACK,
       lineWidth: GRID_LINE_WIDTH,
@@ -256,36 +320,36 @@ function renderAttendancePage(
       fillColor: [255, 255, 255],
     },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 10 },
+      0: { halign: 'center', cellWidth: 11 },
       1: { halign: 'center', cellWidth: 28 },
-      2: { halign: 'left', cellWidth: 76 },
-      3: { halign: 'left', cellWidth: 46 },
+      2: { halign: 'left', cellWidth: 'auto' },
+      3: { halign: 'left', cellWidth: 48 },
       4: { halign: 'center', cellWidth: 22 },
     },
   });
 
-  // Bottom Signature Block: Left Pengawas, Right City/Date + Guru Mapel
+  // Bottom Signature Block: Left Pengawas, Right City/Date + Guru Mapel (2-spasi spacing)
   const finalY =
     (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || 220;
-  let sigY = finalY + 10;
-  if (sigY + 32 > pageHeight) {
+  let sigY = finalY + 11;
+  if (sigY + 34 > pageHeight) {
     doc.addPage();
     sigY = 25;
   }
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(9.2);
   doc.setTextColor(0, 0, 0);
 
   const leftSigX = 24;
-  const rightSigX = 122;
+  const rightSigX = pageWidth - 88;
 
-  doc.text('Pengawas', leftSigX, sigY + 5);
-  doc.text(invigilatorDisplay, leftSigX, sigY + 25);
+  doc.text('Pengawas', leftSigX, sigY + 6.5);
+  doc.text(invigilatorDisplay, leftSigX, sigY + 27);
 
   doc.text(`${cityLabel}, ${dateLine}`, rightSigX, sigY);
-  doc.text('Guru Mapel', rightSigX, sigY + 5);
-  doc.text(teacherDisplay, rightSigX, sigY + 25);
+  doc.text('Guru Mapel', rightSigX, sigY + 6.5);
+  doc.text(teacherDisplay, rightSigX, sigY + 27);
 }
 
 function getTargetSlug(target: AttendanceTarget): string {
@@ -303,11 +367,7 @@ export function exportAttendancePdfForTarget(
   settings: ExamSettings,
   options?: AttendancePdfOptions
 ): void {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   renderAttendancePage(doc, target, students, settings, options);
 
@@ -328,11 +388,7 @@ export function exportBundledAttendancePdfForTargets(
   filenamePrefix = 'Daftar_Hadir'
 ): void {
   if (targets.length === 0) return;
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   targets.forEach((target, idx) => {
     if (idx > 0) doc.addPage();
@@ -357,11 +413,7 @@ export function exportAllSubjectsAttendancePdfForTargets(
   filenamePrefix = 'Bundel_Daftar_Hadir'
 ): void {
   if (targets.length === 0) return;
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   const targetSchedules =
     schedules.length > 0
@@ -406,11 +458,7 @@ export function exportAttendancePdfForRoom(
   saveFile = true,
   options?: AttendancePdfOptions
 ): jsPDF {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   renderAttendancePage(doc, { mode: 'per-room', room }, students, settings, options);
 
@@ -433,11 +481,7 @@ export function exportAllRoomsAttendancePdf(
   settings: ExamSettings,
   options?: AttendancePdfOptions
 ): void {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   rooms.forEach((room, roomIdx) => {
     if (roomIdx > 0) {
@@ -462,11 +506,7 @@ export function exportAllSubjectsAttendancePdf(
   schedules: ExamScheduleItem[],
   options?: Omit<AttendancePdfOptions, 'dayDateText' | 'subjectText'>
 ): void {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   const targetSchedules =
     schedules.length > 0
@@ -494,6 +534,7 @@ export function exportAllSubjectsAttendancePdf(
         ...options,
         dayDateText: dayDate,
         subjectText: sch.subject,
+        schedule: sch,
       });
       pageCounter += 1;
     }
@@ -648,11 +689,7 @@ export function exportAttendance2PdfForTarget(
   students: Student[],
   settings: ExamSettings
 ): void {
-  const doc = new jsPDF({
-    orientation: 'landscape',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('landscape', settings);
 
   renderAttendance2Page(doc, target, dayGroups, students, settings);
   doc.save(`Daftar_Hadir_2_${getTargetSlug(target)}_${Date.now()}.pdf`);
@@ -669,11 +706,7 @@ export function exportBundledAttendance2PdfForTargets(
   filenamePrefix = 'Bundel_Daftar_Hadir_2'
 ): void {
   if (targets.length === 0) return;
-  const doc = new jsPDF({
-    orientation: 'landscape',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('landscape', settings);
 
   targets.forEach((target, idx) => {
     if (idx > 0) doc.addPage();
@@ -692,11 +725,7 @@ export function exportDoorPosterPdf(
   students: Student[],
   settings: ExamSettings
 ): void {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const roomStudents = students
@@ -819,11 +848,7 @@ export function exportExamCardsPdf(
   schedules?: ExamScheduleItem[],
   roomIdFilter?: string
 ): void {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   const filteredStudents = roomIdFilter
     ? students.filter((s) => s.roomId === roomIdFilter)
@@ -834,9 +859,12 @@ export function exportExamCardsPdf(
   }
 
   const pageWidth = doc.internal.pageSize.getWidth();
-  const cardWidth = 186; // mm
-  const cardHeight = 134; // mm
-  const marginX = (pageWidth - cardWidth) / 2; // ~12mm
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const cardWidth = Math.min(188, pageWidth - 20); // mm
+  const cardHeight = Math.min(144, Math.floor((pageHeight - 28) / 2)); // mm
+  const marginX = (pageWidth - cardWidth) / 2;
+  const topY0 = 9;
+  const topY1 = topY0 + cardHeight + 9;
 
   // Default schedule items if not provided
   const scheduleList =
@@ -858,18 +886,19 @@ export function exportExamCardsPdf(
       doc.addPage();
     }
 
-    const y = cardIndexOnPage === 0 ? 10 : 152;
+    const y = cardIndexOnPage === 0 ? topY0 : topY1;
     const x = marginX;
 
-    // Card Outer Border
-    doc.setDrawColor(30, 41, 59);
-    doc.setLineWidth(0.4);
+    // Card Outer Border (crisp dark border)
+    doc.setDrawColor(...LINE_BLACK);
+    doc.setLineWidth(0.6);
     doc.rect(x, y, cardWidth, cardHeight, 'S');
 
     // Header Background Strip
     doc.setFillColor(248, 250, 252);
-    doc.rect(x, y, cardWidth, 18, 'F');
-    doc.setDrawColor(203, 213, 225);
+    doc.rect(x + 0.3, y + 0.3, cardWidth - 0.6, 17.7, 'F');
+    doc.setDrawColor(...LINE_BLACK);
+    doc.setLineWidth(0.48);
     doc.line(x, y + 18, x + cardWidth, y + 18);
 
     // Left Logo (Pemda)
@@ -893,18 +922,18 @@ export function exportExamCardsPdf(
     // Kop Text
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
-    doc.setTextColor(30, 41, 59);
+    doc.setTextColor(15, 23, 42);
     doc.text(settings.schoolName.toUpperCase(), x + cardWidth / 2, y + 6, { align: 'center' });
 
-    doc.setFontSize(10);
-    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(10.5);
+    doc.setTextColor(0, 0, 0);
     doc.text('KARTU PESERTA UJIAN', x + cardWidth / 2, y + 11, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
-    doc.setTextColor(71, 85, 105);
+    doc.setTextColor(51, 65, 85);
     doc.text(
-      `${settings.examTitle} - TAHUN PELAJARAN ${settings.academicYear}`.toUpperCase(),
+      `${settings.activityName || settings.examTitle} - TAHUN PELAJARAN ${settings.academicYear}`.toUpperCase(),
       x + cardWidth / 2,
       y + 15.5,
       { align: 'center' }
@@ -912,11 +941,12 @@ export function exportExamCardsPdf(
 
     // Photo Box (2x3 format)
     const photoX = x + 5;
-    const photoY = y + 22;
-    doc.setDrawColor(203, 213, 225);
+    const photoY = y + 21.5;
+    doc.setDrawColor(...LINE_DARK);
+    doc.setLineWidth(0.38);
     doc.rect(photoX, photoY, 18, 24, 'S');
     doc.setFontSize(6.5);
-    doc.setTextColor(148, 163, 184);
+    doc.setTextColor(100, 116, 139);
     doc.text('Pas Foto', photoX + 9, photoY + 11, { align: 'center' });
     doc.text('2 x 3', photoX + 9, photoY + 15, { align: 'center' });
 
@@ -926,15 +956,15 @@ export function exportExamCardsPdf(
     const idX3 = idX1 + 82;
     const idX4 = idX3 + 20;
 
-    let idY = y + 25;
+    let idY = y + 24.5;
     const printField = (label: string, val: string, xLabel: number, xVal: number) => {
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(7.8);
+      doc.setTextColor(51, 65, 85);
       doc.text(label, xLabel, idY);
       doc.text(':', xLabel + 18, idY);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 23, 42);
+      doc.setTextColor(0, 0, 0);
       doc.text(val, xVal, idY);
     };
 
@@ -943,24 +973,25 @@ export function exportExamCardsPdf(
     printField('Ruang Ujian', `${student.roomName || '-'} (Meja ${String(student.seatNumber || 1).padStart(2, '0')})`, idX3, idX4);
 
     // Row 2
-    idY += 5;
+    idY += 5.2;
     printField('NIS / NISN', `${student.nis} / ${student.nisn || '-'}`, idX1, idX2);
     printField('Kelas', student.className, idX3, idX4);
 
     // Row 3
-    idY += 5;
+    idY += 5.2;
     printField('Nama Siswa', student.name.length > 28 ? student.name.slice(0, 26) + '..' : student.name, idX1, idX2);
     printField('Kelamin', student.gender === 'L' ? 'Laki-Laki (L)' : 'Perempuan (P)', idX3, idX4);
 
     // Row 4
-    idY += 5;
+    idY += 5.2;
     printField('Sesi Ujian', settings.examSession, idX1, idX2);
 
-    // Divider above timetable
-    const tableStartY = y + 50;
+    // Timetable AutoTable on the card (focused, bold clear table borders, no signature footer)
+    const tableStartY = y + 48.5;
+    const maxScheduleRows = cardHeight >= 134 ? 9 : 8;
+    const visibleSchedules = scheduleList.slice(0, maxScheduleRows);
 
-    // Timetable AutoTable on the card
-    const tableBody = scheduleList.slice(0, 7).map((sch, schIdx) => [
+    const tableBody = visibleSchedules.map((sch, schIdx) => [
       schIdx + 1,
       `${sch.day}, ${sch.date}`,
       sch.time,
@@ -970,63 +1001,51 @@ export function exportExamCardsPdf(
 
     autoTable(doc, {
       startY: tableStartY,
-      margin: { left: x + 4, right: pageWidth - (x + cardWidth - 4) },
+      margin: { left: x + 4.5, right: pageWidth - (x + cardWidth - 4.5) },
       head: [['No', 'Hari / Tanggal', 'Waktu', 'Mata Pelajaran Ujian', 'Paraf Pengawas']],
       body: tableBody,
       theme: 'grid',
       headStyles: {
         fillColor: [30, 41, 59],
         textColor: [255, 255, 255],
-        fontSize: 6.8,
+        lineColor: LINE_BLACK,
+        lineWidth: 0.48,
+        fontSize: 7.2,
+        fontStyle: 'bold',
         halign: 'center',
-        cellPadding: 1.2,
+        valign: 'middle',
+        cellPadding: 1.5,
       },
       styles: {
-        fontSize: 6.5,
-        cellPadding: 1.1,
-        textColor: [15, 23, 42],
+        fontSize: 7,
+        cellPadding: 1.55,
+        textColor: [0, 0, 0],
+        lineColor: LINE_BLACK,
+        lineWidth: 0.42,
         valign: 'middle',
       },
       columnStyles: {
-        0: { halign: 'center', cellWidth: 7 },
-        1: { halign: 'left', cellWidth: 32 },
-        2: { halign: 'center', cellWidth: 26 },
+        0: { halign: 'center', cellWidth: 8 },
+        1: { halign: 'left', cellWidth: 33 },
+        2: { halign: 'center', cellWidth: 27 },
         3: { halign: 'left', fontStyle: 'bold', cellWidth: 'auto' },
-        4: { halign: 'center', cellWidth: 28 }, // Paraf column
+        4: { halign: 'center', cellWidth: 30 }, // Paraf column
       },
       alternateRowStyles: {
         fillColor: [248, 250, 252],
       },
     });
 
-    // Signature Area at bottom of card
-    const bottomSigY = y + cardHeight - 19;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
-    doc.setTextColor(51, 65, 85);
-
-    // Left: Student Signature
-    doc.text('Peserta Ujian,', x + 25, bottomSigY, { align: 'center' });
-    doc.line(x + 10, bottomSigY + 12, x + 40, bottomSigY + 12);
-    doc.text(`( ${student.name.slice(0, 18)} )`, x + 25, bottomSigY + 15, { align: 'center' });
-
-    // Right: Committee Head Signature
-    doc.text(`Jakarta, ${settings.examDate.split('-')[0].trim() || '20 Oktober 2026'}`, x + cardWidth - 35, bottomSigY - 3, { align: 'center' });
-    doc.text('Ketua Panitia Ujian,', x + cardWidth - 35, bottomSigY, { align: 'center' });
-    doc.setFont('helvetica', 'bold');
-    doc.text(settings.committeeHead, x + cardWidth - 35, bottomSigY + 12, { align: 'center' });
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(5.5);
-    doc.text(`NIP. ${settings.committeeNip || '-'}`, x + cardWidth - 35, bottomSigY + 15, { align: 'center' });
-
     // Dotted cutting line between cards
     if (cardIndexOnPage === 0) {
+      const cutY = y + cardHeight + 4.5;
       doc.setLineDashPattern([1.5, 1.5], 0);
-      doc.setDrawColor(148, 163, 184);
-      doc.line(x - 5, y + cardHeight + 4, x + cardWidth + 5, y + cardHeight + 4);
-      doc.setFontSize(6);
-      doc.setTextColor(148, 163, 184);
-      doc.text('- - - - - - - - - - - - - - - - - - Gunting Di Sini - - - - - - - - - - - - - - - - - -', pageWidth / 2, y + cardHeight + 5.5, { align: 'center' });
+      doc.setDrawColor(100, 116, 139);
+      doc.setLineWidth(0.3);
+      doc.line(x - 5, cutY, x + cardWidth + 5, cutY);
+      doc.setFontSize(6.2);
+      doc.setTextColor(100, 116, 139);
+      doc.text('- - - - - - - - - - - - - - - - - - Gunting Di Sini - - - - - - - - - - - - - - - - - -', pageWidth / 2, cutY + 2, { align: 'center' });
       doc.setLineDashPattern([], 0);
     }
   });
@@ -1088,11 +1107,7 @@ export function exportDeskCardsPdf(
     throw new Error('Tidak ada peserta teralokasi yang sesuai dengan filter untuk dicetak ke Kartu Meja.');
   }
 
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -1325,11 +1340,7 @@ export function exportSchedulePdf(
   schedules: ExamScheduleItem[],
   settings: ExamSettings
 ): void {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -1455,9 +1466,10 @@ export function exportSchedulePdf(
   doc.text(`NIP. ${settings.headmasterNip || '-'}`, sigColLeft, sigY + 29, { align: 'center' });
 
   // Right: Ketua Panitia Ujian
-  const todayStr = settings.examDate.split('-')[0].trim() || '20 Oktober 2026';
+  const schedCity = extractCityFromSettings(settings);
+  const todayStr = extractSignatureDateFromSettings(settings);
   doc.setFontSize(8.5);
-  doc.text(`Jakarta, ${todayStr}`, sigColRight, sigY, { align: 'center' });
+  doc.text(`${schedCity}, ${todayStr}`, sigColRight, sigY, { align: 'center' });
   doc.text('Ketua Panitia Ujian', sigColRight, sigY + 5, { align: 'center' });
   doc.setFont('helvetica', 'bold');
   doc.text(settings.committeeHead, sigColRight, sigY + 25, { align: 'center' });
@@ -1486,11 +1498,7 @@ export function exportCirculationPdf(
   const pattern = options?.pattern || 'fixed';
   const includeRotation = options?.includeRotation ?? false;
 
-  const doc = new jsPDF({
-    orientation: 'landscape',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('landscape', settings);
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -1812,9 +1820,10 @@ export function exportCirculationPdf(
   doc.setFontSize(7.5);
   doc.text(`NIP. ${settings.headmasterNip || '-'}`, sigColLeft, nextY + 25, { align: 'center' });
 
-  const todayStr = settings.examDate.split('-')[0].trim() || '20 Oktober 2026';
+  const circCity = extractCityFromSettings(settings);
+  const todayStr = extractSignatureDateFromSettings(settings);
   doc.setFontSize(8.5);
-  doc.text(`Dicetak: ${todayStr}`, sigColRight, nextY, { align: 'center' });
+  doc.text(`${circCity}, ${todayStr}`, sigColRight, nextY, { align: 'center' });
   doc.text('Ketua Panitia Ujian', sigColRight, nextY + 4.5, { align: 'center' });
   doc.setFont('helvetica', 'bold');
   doc.text(settings.committeeHead, sigColRight, nextY + 21, { align: 'center' });
@@ -1962,7 +1971,9 @@ function renderDailyJournalPage(
 
   const sigX = pageWidth - 68;
   const cityLabel = (record.signatureCity || extractCityFromSettings(settings)).trim();
-  const dateLine = (record.signatureDateText || '_____________________').trim();
+  const dateLine = (
+    record.signatureDateText || extractSignatureDateFromSettings(settings, '_____________________')
+  ).trim();
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
@@ -1988,11 +1999,7 @@ export function exportDailyJournalPdf(
   record: DailyRoomJournalRecord,
   blankMode = false
 ): void {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   renderDailyJournalPage(doc, room, dayGroups, roomStudents, settings, record, blankMode);
   doc.save(
@@ -2011,11 +2018,7 @@ export function exportAllDailyJournalsPdf(
   journalMap: Record<string, DailyRoomJournalRecord>,
   blankMode = false
 ): void {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   rooms.forEach((room, idx) => {
     if (idx > 0) doc.addPage();
@@ -2084,8 +2087,12 @@ function renderHandoverBeritaAcaraPage(
 
   curY += 21;
 
-  const dayInv = getRoomDayInvigilators(room, dayGroup.dayKey, settings);
-  const invigilatorName = record.invigilator1 || dayInv.invigilator1 || '.....................................';
+  const dayInvSummary = getRoomDaySessionSummaryLabel(room, dayGroup, settings);
+  const invigilatorName = record.invigilator1 || dayInvSummary || '.....................................';
+  const resolveSessInv = (scheduleId: string) =>
+    record.sessionInvigilators?.[scheduleId] !== undefined
+      ? record.sessionInvigilators[scheduleId]
+      : getRoomDaySessionInvigilator(room, dayGroup.dayKey, scheduleId, settings);
   const committeeOut = record.committeeOfficerOut || settings.committeeHead || 'Petugas Panitia';
   const committeeIn = record.committeeOfficerIn || settings.committeeHead || 'Petugas Panitia';
 
@@ -2117,10 +2124,15 @@ function renderHandoverBeritaAcaraPage(
 
     const outRows = dayGroup.sessions.map((sch, idx) => {
       const entry = record.sessions[sch.id];
+      const sessInv = resolveSessInv(sch.id);
+      const subjText =
+        !blankMode && dayGroup.sessions.length > 1 && sessInv
+          ? `${sch.subject}\n(Pengawas: ${sessInv})`
+          : sch.subject;
       return [
         idx + 1,
-        `${sch.roomNotes || `Sesi ${idx + 1}`} (${sch.time})`,
-        sch.subject,
+        `${getSessionDisplayLabel(sch, idx)} (${sch.time})`,
+        subjText,
         blankMode ? '' : entry?.questionCopies || String(roomStudents.length + (record.reserveCopies || 0)),
         blankMode ? '' : entry?.answerSheetCopies || String(roomStudents.length + (record.reserveCopies || 0)),
         '1 Set',
@@ -2247,10 +2259,15 @@ function renderHandoverBeritaAcaraPage(
 
     const inRows = dayGroup.sessions.map((sch, idx) => {
       const entry = record.sessions[sch.id];
+      const sessInv = resolveSessInv(sch.id);
+      const subjText =
+        !blankMode && dayGroup.sessions.length > 1 && sessInv
+          ? `${sch.subject}\n(Pengawas: ${sessInv})`
+          : sch.subject;
       return [
         idx + 1,
-        `${sch.roomNotes || `Sesi ${idx + 1}`} (${sch.time})`,
-        sch.subject,
+        `${getSessionDisplayLabel(sch, idx)} (${sch.time})`,
+        subjText,
         blankMode ? '' : entry?.returnedFilledSheets || '',
         blankMode ? '' : entry?.returnedUnusedSheets || '',
         blankMode ? '' : entry?.returnedQuestionCopies || '',
@@ -2354,16 +2371,20 @@ function renderHandoverBeritaAcaraPage(
   doc.setLineWidth(0.4);
   doc.line(14, curY - 2, pageWidth - 14, curY - 2);
 
+  const handoverCity = extractCityFromSettings(settings);
+  const handoverDate = extractSignatureDateFromSettings(settings);
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(51, 65, 85);
-  doc.text('Mengetahui & Mengesahkan,', pageWidth / 2, curY + 2.5, { align: 'center' });
+  doc.text(`${handoverCity}, ${handoverDate}`, pageWidth / 2, curY + 2, { align: 'center' });
+  doc.text('Mengetahui & Mengesahkan,', pageWidth / 2, curY + 5.5, { align: 'center' });
   doc.setFont('helvetica', 'bold');
-  doc.text('Ketua Panitia Ujian', pageWidth / 2, curY + 6, { align: 'center' });
-  doc.text(settings.committeeHead, pageWidth / 2, curY + 19, { align: 'center' });
+  doc.text('Ketua Panitia Ujian', pageWidth / 2, curY + 9, { align: 'center' });
+  doc.text(settings.committeeHead, pageWidth / 2, curY + 21, { align: 'center' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.text(`NIP. ${settings.committeeNip || '-'}`, pageWidth / 2, curY + 22.5, { align: 'center' });
+  doc.text(`NIP. ${settings.committeeNip || '-'}`, pageWidth / 2, curY + 24.5, { align: 'center' });
 }
 
 /**
@@ -2378,11 +2399,7 @@ export function exportHandoverBeritaAcaraPdf(
   directionMode: HandoverDirectionMode = 'both',
   blankMode = false
 ): void {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   renderHandoverBeritaAcaraPage(
     doc,
@@ -2412,11 +2429,7 @@ export function exportAllHandoverBeritaAcaraPdf(
   directionMode: HandoverDirectionMode = 'both',
   blankMode = false
 ): void {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   let pageIndex = 0;
   for (const room of rooms) {
@@ -2456,11 +2469,7 @@ export function exportDistributionMatrixPdf(
 ): void {
   const matrix = buildRoomClassMatrix(students, rooms, settings.customClassOrder);
 
-  const doc = new jsPDF({
-    orientation: 'landscape',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('landscape', settings);
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -2614,7 +2623,7 @@ export function exportDistributionMatrixPdf(
   }
 
   const cityLabel = extractCityFromSettings(settings);
-  const dateLabel = settings.examDate.split('-')[0].trim() || '20 Oktober 2026';
+  const dateLabel = extractSignatureDateFromSettings(settings);
   const sigColLeft = 58;
   const sigColRight = pageWidth - 58;
 
@@ -2652,11 +2661,7 @@ export function exportInvigilatorSchedulePdf(
 ): void {
   const dayGroups = buildExamDayGroups(schedules);
 
-  const doc = new jsPDF({
-    orientation: 'landscape',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('landscape', settings);
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -2668,6 +2673,8 @@ export function exportInvigilatorSchedulePdf(
     `${(settings.activityName || settings.examTitle).toUpperCase()} — TAHUN PELAJARAN ${settings.academicYear}`
   );
 
+  const totalSessionsCount = dayGroups.reduce((acc, dg) => acc + dg.sessions.length, 0);
+
   let currentY = headerBottomY + 2;
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(...BOX_BORDER_DARK);
@@ -2678,7 +2685,7 @@ export function exportInvigilatorSchedulePdf(
   doc.setFontSize(8);
   doc.setTextColor(15, 23, 42);
   doc.text(
-    `Jumlah Ruang: ${rooms.length} Ruang   |   Jumlah Hari Ujian: ${dayGroups.length} Hari   |   Rasio: 1 Pengawas / Ruang   |   Sesi: ${settings.examSession}`,
+    `Jumlah Ruang: ${rooms.length} Ruang   |   Jumlah Hari Ujian: ${dayGroups.length} Hari (${totalSessionsCount} Sesi)   |   Rasio: 1 Pengawas / Ruang / Sesi`,
     pageWidth / 2,
     currentY + 6.3,
     { align: 'center' }
@@ -2686,14 +2693,27 @@ export function exportInvigilatorSchedulePdf(
 
   currentY += 13;
 
-  const head = [
+  const sessionSlots = dayGroups.flatMap((dg) =>
+    dg.sessions.map((sch, sIdx) => ({ dg, sch, sIdx }))
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const head: any[] = [
     [
-      'No',
-      'Kode',
-      'Nama Ruang',
-      'Lokasi / Gedung',
-      ...dayGroups.map((dg) => `Hari ${dg.dayNumber}\n${dg.day}, ${dg.date}`),
+      { content: 'No', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'Kode', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'Nama Ruang', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'Lokasi / Gedung', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      ...dayGroups.map((dg) => ({
+        content: `Hari ${dg.dayNumber}\n${dg.day}, ${dg.date}`,
+        colSpan: Math.max(1, dg.sessions.length),
+        styles: { halign: 'center', valign: 'middle' },
+      })),
     ],
+    sessionSlots.map(({ sch, sIdx }) => ({
+      content: `${getSessionDisplayLabel(sch, sIdx)}\n${sch.subject.length > 18 ? sch.subject.slice(0, 16) + '..' : sch.subject}`,
+      styles: { halign: 'center', valign: 'middle', fontSize: 6.5, fillColor: [51, 65, 85] },
+    })),
   ];
 
   const body = rooms.map((room, idx) => [
@@ -2701,22 +2721,25 @@ export function exportInvigilatorSchedulePdf(
     room.code,
     room.name,
     room.building,
-    ...dayGroups.map((dg) => getRoomDayInvigilators(room, dg.dayKey, settings).invigilator1 || '-'),
+    ...sessionSlots.map(
+      ({ dg, sch }) => getRoomDaySessionInvigilator(room, dg.dayKey, sch.id, settings) || '-'
+    ),
   ]);
 
   const printableW = pageWidth - 28;
-  const fixedW = 9 + 13 + 26 + 32; // 80mm
-  const dayColW = Math.max(24, (printableW - fixedW) / Math.max(1, dayGroups.length));
+  const fixedW = 8 + 12 + 23 + 26; // 69mm
+  const slotColW = Math.max(18, (printableW - fixedW) / Math.max(1, sessionSlots.length));
+  const tableFontSize = sessionSlots.length >= 8 ? 6.5 : sessionSlots.length >= 5 ? 7 : 7.5;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const colStyles: Record<number, any> = {
-    0: { halign: 'center', cellWidth: 9 },
-    1: { halign: 'center', fontStyle: 'bold', cellWidth: 13 },
-    2: { halign: 'left', fontStyle: 'bold', cellWidth: 26 },
-    3: { halign: 'left', cellWidth: 32 },
+    0: { halign: 'center', cellWidth: 8 },
+    1: { halign: 'center', fontStyle: 'bold', cellWidth: 12 },
+    2: { halign: 'left', fontStyle: 'bold', cellWidth: 23 },
+    3: { halign: 'left', cellWidth: 26 },
   };
-  dayGroups.forEach((_, i) => {
-    colStyles[4 + i] = { halign: 'left', cellWidth: dayColW };
+  sessionSlots.forEach((_, i) => {
+    colStyles[4 + i] = { halign: 'left', cellWidth: slotColW };
   });
 
   autoTable(doc, {
@@ -2730,13 +2753,13 @@ export function exportInvigilatorSchedulePdf(
       textColor: [255, 255, 255],
       lineColor: LINE_DARK,
       lineWidth: HEAD_LINE_WIDTH,
-      fontSize: 7.5,
+      fontSize: tableFontSize,
       halign: 'center',
       valign: 'middle',
     },
     styles: {
-      fontSize: 7.5,
-      cellPadding: 2.2,
+      fontSize: tableFontSize,
+      cellPadding: 1.8,
       textColor: [15, 23, 42],
       lineColor: LINE_DARK,
       lineWidth: GRID_LINE_WIDTH,
@@ -2759,7 +2782,7 @@ export function exportInvigilatorSchedulePdf(
   }
 
   const cityLabel = extractCityFromSettings(settings);
-  const dateLabel = settings.examDate.split('-')[0].trim() || '20 Oktober 2026';
+  const dateLabel = extractSignatureDateFromSettings(settings);
   const sigColLeft = 58;
   const sigColRight = pageWidth - 58;
 
@@ -2806,11 +2829,7 @@ export function exportInvigilatorAttendancePdf(
   const dayGroups = buildExamDayGroups(schedules);
 
   if (mode === 'multi-day') {
-    const doc = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4',
-    });
+    const doc = createPdfDoc('landscape', settings);
 
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -2945,7 +2964,7 @@ export function exportInvigilatorAttendancePdf(
     }
 
     const cityLabel = extractCityFromSettings(settings);
-    const dateLabel = settings.examDate.split('-')[0].trim() || '20 Oktober 2026';
+    const dateLabel = extractSignatureDateFromSettings(settings);
     const sigX = pageWidth - 62;
 
     doc.setFont('helvetica', 'normal');
@@ -2970,11 +2989,7 @@ export function exportInvigilatorAttendancePdf(
       : dayGroups;
   const daysToRender = targetDays.length > 0 ? targetDays : dayGroups;
 
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const doc = createPdfDoc('portrait', settings);
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -3007,39 +3022,106 @@ export function exportInvigilatorAttendancePdf(
     doc.text(`Hari ke-${dg.dayNumber} — ${dg.day}, ${dg.date}`, 48, currentY + 5.2);
 
     doc.setFont('helvetica', 'normal');
-    doc.text('Mata Pelajaran', 18, currentY + 10.6);
+    doc.text('Sesi & Mapel', 18, currentY + 10.6);
     doc.text(':', 44, currentY + 10.6);
     doc.setFont('helvetica', 'bold');
-    const subjSummary = dg.sessions.map((s) => `${s.subject} (${s.time})`).join('  |  ');
+    const subjSummary = dg.sessions
+      .map((s, idx) => `${getSessionDisplayLabel(s, idx)}: ${s.subject} (${s.time})`)
+      .join('  |  ');
     const clippedSubj = subjSummary.length > 74 ? subjSummary.slice(0, 72) + '..' : subjSummary;
     doc.text(clippedSubj, 48, currentY + 10.6);
 
     currentY += 18;
 
-    const bodyRows = rooms.map((room, idx) => {
-      const no = idx + 1;
-      const isOdd = no % 2 !== 0;
-      const invName = getRoomDayInvigilators(room, dg.dayKey, settings).invigilator1 || '-';
-      return [
-        String(no),
-        room.code,
-        room.name,
-        invName,
-        '',
-        {
-          content: `${no}.`,
-          styles: {
-            halign: isOdd ? ('left' as const) : ('center' as const),
+    const hasMultipleSessions = dg.sessions.length > 1;
+    let rowCounter = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const bodyRows: any[] = [];
+
+    for (const room of rooms) {
+      if (dg.sessions.length === 0) {
+        rowCounter += 1;
+        const no = rowCounter;
+        const isOdd = no % 2 !== 0;
+        bodyRows.push([
+          String(no),
+          room.code,
+          room.name,
+          room.invigilator1 || '-',
+          '',
+          {
+            content: `${no}.`,
+            styles: { halign: isOdd ? ('left' as const) : ('center' as const) },
           },
-        },
-        '',
-      ];
-    });
+          '',
+        ]);
+        continue;
+      }
+
+      dg.sessions.forEach((sch, sIdx) => {
+        rowCounter += 1;
+        const no = rowCounter;
+        const isOdd = no % 2 !== 0;
+        const invName =
+          getRoomDaySessionInvigilator(room, dg.dayKey, sch.id, settings) || '-';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const row: any[] = [String(no)];
+        if (sIdx === 0) {
+          row.push({
+            content: room.code,
+            rowSpan: dg.sessions.length,
+            styles: { halign: 'center' as const, valign: 'middle' as const, fontStyle: 'bold' as const },
+          });
+          row.push({
+            content: room.name,
+            rowSpan: dg.sessions.length,
+            styles: { halign: 'left' as const, valign: 'middle' as const },
+          });
+        }
+        if (hasMultipleSessions) {
+          row.push(`${getSessionDisplayLabel(sch, sIdx)}\n${sch.subject}`);
+        }
+        row.push(invName);
+        row.push('');
+        row.push({
+          content: `${no}.`,
+          styles: { halign: isOdd ? ('left' as const) : ('center' as const) },
+        });
+        row.push('');
+        bodyRows.push(row);
+      });
+    }
+
+    const headRow = hasMultipleSessions
+      ? [['No', 'Kode', 'Ruang Ujian', 'Sesi / Mapel', 'Nama Pengawas Ruang', 'Jam Hadir', 'Tanda Tangan', 'Ket.']]
+      : [['No', 'Kode', 'Ruang Ujian', 'Nama Pengawas Ruang', 'Jam Hadir', 'Tanda Tangan', 'Ket.']];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const colStyles: Record<number, any> = hasMultipleSessions
+      ? {
+          0: { halign: 'center', cellWidth: 9 },
+          1: { halign: 'center', fontStyle: 'bold', cellWidth: 13 },
+          2: { halign: 'left', cellWidth: 22 },
+          3: { halign: 'left', fontSize: 7, cellWidth: 28 },
+          4: { halign: 'left', fontStyle: 'bold', cellWidth: 44 },
+          5: { halign: 'center', cellWidth: 18 },
+          6: { halign: 'left', cellWidth: 33 },
+          7: { halign: 'center', cellWidth: 15 },
+        }
+      : {
+          0: { halign: 'center', cellWidth: 10 },
+          1: { halign: 'center', fontStyle: 'bold', cellWidth: 15 },
+          2: { halign: 'left', cellWidth: 28 },
+          3: { halign: 'left', fontStyle: 'bold', cellWidth: 56 },
+          4: { halign: 'center', cellWidth: 20 },
+          5: { halign: 'left', cellWidth: 36 },
+          6: { halign: 'center', cellWidth: 17 },
+        };
 
     autoTable(doc, {
       startY: currentY,
       margin: { left: 14, right: 14 },
-      head: [['No', 'Kode', 'Ruang Ujian', 'Nama Pengawas Ruang', 'Jam Hadir', 'Tanda Tangan', 'Ket.']],
+      head: headRow,
       body: bodyRows,
       theme: 'grid',
       headStyles: {
@@ -3047,29 +3129,21 @@ export function exportInvigilatorAttendancePdf(
         textColor: [255, 255, 255],
         lineColor: LINE_BLACK,
         lineWidth: HEAD_LINE_WIDTH,
-        fontSize: 8,
+        fontSize: hasMultipleSessions ? 7.5 : 8,
         fontStyle: 'bold',
         halign: 'center',
         valign: 'middle',
       },
       styles: {
-        fontSize: 8,
-        cellPadding: 2,
+        fontSize: hasMultipleSessions ? 7.5 : 8,
+        cellPadding: 1.8,
         textColor: [0, 0, 0],
         lineColor: LINE_BLACK,
         lineWidth: GRID_LINE_WIDTH,
         valign: 'middle',
-        minCellHeight: 10.5,
+        minCellHeight: 9.5,
       },
-      columnStyles: {
-        0: { halign: 'center', cellWidth: 10 },
-        1: { halign: 'center', fontStyle: 'bold', cellWidth: 15 },
-        2: { halign: 'left', cellWidth: 28 },
-        3: { halign: 'left', fontStyle: 'bold', cellWidth: 56 },
-        4: { halign: 'center', cellWidth: 20 },
-        5: { halign: 'left', cellWidth: 36 },
-        6: { halign: 'center', cellWidth: 17 },
-      },
+      columnStyles: colStyles,
     });
 
     let nextY =
@@ -3081,10 +3155,11 @@ export function exportInvigilatorAttendancePdf(
     }
 
     const sigX = pageWidth - 52;
+    const perDayDate = (settings.signatureDate || '').trim() || dg.date || '_____________________';
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(0, 0, 0);
-    doc.text(`${cityLabel}, ${dg.date || '_____________________'}`, sigX, nextY, {
+    doc.text(`${cityLabel}, ${perDayDate}`, sigX, nextY, {
       align: 'center',
     });
     doc.text('Ketua Panitia Ujian,', sigX, nextY + 5, { align: 'center' });

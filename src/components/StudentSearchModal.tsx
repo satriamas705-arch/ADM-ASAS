@@ -177,51 +177,31 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
                         <span className="text-3xs text-slate-400">Wajib diparaf saat ujian berlangsung</span>
                       </div>
 
-                      <div className="border border-slate-200 rounded-md overflow-hidden text-2xs">
-                        <table className="w-full text-left">
-                          <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
+                      <div className="border-2 border-slate-900 rounded-md overflow-hidden text-2xs">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="bg-slate-900 text-white font-semibold">
                             <tr>
-                              <th className="py-1 px-2 w-7 text-center">No</th>
-                              <th className="py-1 px-2">Mata Pelajaran</th>
-                              <th className="py-1 px-2 w-24">Hari & Jam</th>
-                              <th className="py-1 px-2 w-20 text-center">TTD Pengawas</th>
+                              <th className="py-1.5 px-2 w-7 text-center border-b border-r border-slate-700">No</th>
+                              <th className="py-1.5 px-2 border-b border-r border-slate-700">Mata Pelajaran</th>
+                              <th className="py-1.5 px-2 w-24 border-b border-r border-slate-700">Hari &amp; Jam</th>
+                              <th className="py-1.5 px-2 w-20 text-center border-b border-slate-700">Paraf Pengawas</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 font-mono">
-                            {(schedules.length > 0 ? schedules.slice(0, 5) : [
+                          <tbody className="font-mono">
+                            {(schedules.length > 0 ? schedules.slice(0, 6) : [
                               { id: '1', day: 'Senin', date: '20 Okt', time: '07.30 - 09.30', subject: 'Bahasa Indonesia' },
                               { id: '2', day: 'Selasa', date: '21 Okt', time: '07.30 - 09.30', subject: 'Matematika Wajib' },
                               { id: '3', day: 'Rabu', date: '22 Okt', time: '07.30 - 09.30', subject: 'Bahasa Inggris' },
                             ]).map((sch, i) => (
-                              <tr key={sch.id} className="hover:bg-slate-50">
-                                <td className="py-1 px-2 text-center text-slate-400">{i + 1}</td>
-                                <td className="py-1 px-2 font-sans font-medium text-slate-900">{sch.subject}</td>
-                                <td className="py-1 px-2 text-slate-500 text-3xs">{sch.day}, {sch.time}</td>
-                                <td className="py-1 px-2 text-center">
-                                  <div className="w-12 h-5 mx-auto border border-dashed border-slate-300 rounded bg-slate-50" />
-                                </td>
+                              <tr key={sch.id} className="hover:bg-slate-50 border-b border-slate-900 last:border-b-0">
+                                <td className="py-1.5 px-2 text-center font-bold text-slate-700 border-r border-slate-900">{i + 1}</td>
+                                <td className="py-1.5 px-2 font-sans font-semibold text-slate-950 border-r border-slate-900">{sch.subject}</td>
+                                <td className="py-1.5 px-2 text-slate-700 text-3xs border-r border-slate-900">{sch.day}, {sch.time}</td>
+                                <td className="py-1.5 px-2 text-center">&nbsp;</td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
-                      </div>
-                    </div>
-
-                    {/* Bottom Signature Box */}
-                    <div className="grid grid-cols-2 gap-4 pt-2 text-2xs text-center border-t border-slate-100">
-                      <div>
-                        <span className="text-slate-500 block">Tanda Tangan Siswa</span>
-                        <div className="h-9" />
-                        <span className="font-semibold text-slate-900 block border-t border-slate-300 pt-0.5 mx-4">
-                          {matchedStudent.name}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-slate-500 block">Ketua Panitia Ujian</span>
-                        <div className="h-9" />
-                        <span className="font-semibold text-slate-900 block border-t border-slate-300 pt-0.5 mx-4">
-                          {settings.committeeHead}
-                        </span>
                       </div>
                     </div>
                   </>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Settings, Save, Check } from 'lucide-react';
 import { ExamSettings } from '../types';
+import { extractCityFromAddress } from '../utils/examDocuments';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -195,6 +196,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   value={formData.committeeNip}
                   onChange={(e) => setFormData({ ...formData, committeeNip: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Tempat / Kota Penandatanganan
+                </label>
+                <input
+                  type="text"
+                  value={formData.signatureCity ?? ''}
+                  onChange={(e) => setFormData({ ...formData, signatureCity: e.target.value })}
+                  placeholder={`Otomatis: ${extractCityFromAddress(formData.schoolAddress)}`}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Tanggal Penandatanganan
+                </label>
+                <input
+                  type="text"
+                  value={formData.signatureDate ?? ''}
+                  onChange={(e) => setFormData({ ...formData, signatureDate: e.target.value })}
+                  placeholder="Contoh: 20 Oktober 2026"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none"
                 />
               </div>
             </div>

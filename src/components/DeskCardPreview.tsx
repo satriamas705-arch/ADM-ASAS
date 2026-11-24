@@ -8,6 +8,7 @@ import {
   getClassColorTheme,
 } from '../utils/classColors';
 import { formatRoomNumberLabel } from '../utils/examDocuments';
+import { getPaperSizeSpec } from '../utils/exportPdf';
 
 export type DeskCardScope = 'room' | 'all-rooms' | 'class';
 export type DeskCardColorStyle = 'full' | 'header';
@@ -56,8 +57,9 @@ export const DeskCardControlBar: React.FC<DeskCardControlBarProps> = ({
               <strong className="font-mono tabular-nums text-slate-800">
                 {totalMatchingCards} kartu meja
               </strong>{' '}
-              ({Math.max(1, Math.ceil(totalMatchingCards / config.cardsPerPage))} halaman A4 &middot;{' '}
-              {config.cardsPerPage} kartu/hal)
+              ({Math.max(1, Math.ceil(totalMatchingCards / config.cardsPerPage))} halaman{' '}
+              {getPaperSizeSpec(settings.paperSize).shortLabel} &middot; {config.cardsPerPage}{' '}
+              kartu/hal)
             </p>
           </div>
         </div>
@@ -289,7 +291,8 @@ export const DeskCardSheet: React.FC<DeskCardSheetProps> = ({
         <div className="flex items-center gap-2">
           <Scissors className="w-4 h-4 text-slate-700 shrink-0" />
           <span>
-            Format Cetak A4: <strong>{cardsPerPage} Kartu Meja / Halaman</strong> (
+            Format Cetak {getPaperSizeSpec(settings.paperSize).shortLabel}:{' '}
+            <strong>{cardsPerPage} Kartu Meja / Halaman</strong> (
             {cardsPerPage === 8 ? '2 Kolom × 4 Baris' : '2 Kolom × 5 Baris'}) &middot; Warna otomatis berbeda tiap kelas
           </span>
         </div>

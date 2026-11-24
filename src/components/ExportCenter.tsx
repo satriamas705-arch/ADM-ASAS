@@ -15,13 +15,15 @@ import {
   Grid,
   UserCheck,
 } from 'lucide-react';
-import { Student, Room, ExamSettings, ExamScheduleItem } from '../types';
+import { Student, Room, ExamSettings, ExamScheduleItem, PaperSize } from '../types';
 import {
   exportAllocationToExcel,
   exportCirculationToExcel,
   exportStudentTemplateExcel,
 } from '../utils/exportExcel';
 import {
+  PAPER_SIZE_OPTIONS,
+  getPaperSizeSpec,
   exportAttendancePdfForTarget,
   exportBundledAttendancePdfForTargets,
   exportAllSubjectsAttendancePdfForTargets,
@@ -51,6 +53,7 @@ interface ExportCenterProps {
   rooms: Room[];
   settings: ExamSettings;
   schedules?: ExamScheduleItem[];
+  onUpdateSettings?: (newSettings: ExamSettings) => void;
 }
 
 export const ExportCenter: React.FC<ExportCenterProps> = ({
@@ -58,6 +61,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
   rooms,
   settings,
   schedules = [],
+  onUpdateSettings,
 }) => {
   const orderedClasses = useMemo(
     () => getOrderedClassNames(students, settings.customClassOrder),
@@ -98,6 +102,22 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
     [orderedClasses, settings.classColors]
   );
 
+  const [localPaperSize, setLocalPaperSize] = useState<PaperSize>(settings.paperSize || 'a4');
+  const activePaperSize: PaperSize = settings.paperSize || localPaperSize;
+  const activePaperSpec = getPaperSizeSpec(activePaperSize);
+  const effectiveSettings = useMemo<ExamSettings>(
+    () => ({ ...settings, paperSize: activePaperSize }),
+    [settings, activePaperSize]
+  );
+
+  const handleSelectPaperSize = (paperSize: PaperSize) => {
+    setLocalPaperSize(paperSize);
+    if (onUpdateSettings) {
+      onUpdateSettings({ ...settings, paperSize });
+    }
+    showSuccess(`Ukuran kertas cetak diatur ke ${getPaperSizeSpec(paperSize).label}.`);
+  };
+
   const allocatedCount = students.filter((s) => s.roomId).length;
   const isAllocated = allocatedCount > 0;
 
@@ -110,7 +130,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
   const handleExportExcel = () => {
     try {
       exportAllocationToExcel(students, rooms, settings, schedules);
-      showSuccess('File Excel (.xlsx) berhasil diunduh dengan lembar Rekapitulasi, Pengawas Per Hari & Per-Ruangan!');
+      showSuccess('File Excel (.xlsx) berhasil diunduh dengan lembar Rekapitulasi, Pengawas Per Hari & Sesi, dan Per-Ruangan!');
     } catch (e: unknown) {
       showSuccess('Gagal mengekspor Excel: ' + (e instanceof Error ? e.message : String(e)));
     }
@@ -179,18 +199,18 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
       }
 
       if (selectedScheduleForAttendance === 'ALL_SUBJECTS') {
-        exportAllSubjectsAttendancePdfForTargets(targets, students, settings, schedules, {
+        exportAllSubjectsAttendancePdfForTargets(targets, students, effectiveSettings, schedules, {
           useDailyInvigilators: useDailyInvigilatorsInAttendance,
         });
         showSuccess(`Bundel PDF Daftar Hadir (${targets.length} lembar × semua mapel) berhasil diunduh!`);
       } else if (targets.length === 1) {
-        exportAttendancePdfForTarget(targets[0], students, settings, attendanceOpts);
+        exportAttendancePdfForTarget(targets[0], students, effectiveSettings, attendanceOpts);
         showSuccess('Daftar Hadir PDF berhasil diunduh!');
       } else {
         exportBundledAttendancePdfForTargets(
           targets,
           students,
-          settings,
+          effectiveSettings,
           attendanceOpts,
           'Daftar_Hadir_Gabungan'
         );
@@ -215,14 +235,14 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
       }
 
       if (targets.length === 1) {
-        exportAttendance2PdfForTarget(targets[0], examDayGroups, students, settings);
+        exportAttendance2PdfForTarget(targets[0], examDayGroups, students, effectiveSettings);
         showSuccess('Daftar Hadir 2 PDF berhasil diunduh!');
       } else {
         exportBundledAttendance2PdfForTargets(
           targets,
           examDayGroups,
           students,
-          settings,
+          effectiveSettings,
           'Bundel_Daftar_Hadir_2'
         );
         showSuccess(`Bundel PDF Daftar Hadir 2 (${targets.length} lembar) berhasil diunduh!`);
@@ -236,7 +256,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
     try {
       const targetRoom = rooms.find((r) => r.id === selectedRoomForDoor);
       if (targetRoom) {
-        exportDoorPosterPdf(targetRoom, students, settings);
+        exportDoorPosterPdf(targetRoom, students, effectiveSettings);
         showSuccess(`Tempelan Pintu PDF untuk ${targetRoom.name} berhasil diunduh!`);
       }
     } catch (e: unknown) {
@@ -247,8 +267,8 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
   const handleExportCardsPdf = () => {
     try {
       const roomId = selectedRoomForCards === 'ALL' ? undefined : selectedRoomForCards;
-      exportExamCardsPdf(students, settings, schedules, roomId);
-      showSuccess('Kartu Peserta Ujian lengkap dengan jadwal & tanda tangan pengawas berhasil diunduh!');
+      exportExamCardsPdf(students, effectiveSettings, schedules, roomId);
+      showSuccess(`Kartu Peserta Ujian (${activePaperSpec.shortLabel}) berhasil diunduh!`);
     } catch (e: unknown) {
       showSuccess('Gagal mengekspor Kartu Peserta: ' + (e instanceof Error ? e.message : String(e)));
     }
@@ -256,7 +276,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
 
   const handleExportDeskCardsPdf = () => {
     try {
-      exportDeskCardsPdf(students, rooms, settings, {
+      exportDeskCardsPdf(students, rooms, effectiveSettings, {
         roomIdFilter: selectedRoomForDeskCards,
         classFilter: selectedClassForDeskCards,
         cardsPerPage: deskCardsPerPage,
@@ -270,7 +290,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
 
   const handleExportSchedulePdf = () => {
     try {
-      exportSchedulePdf(schedules, settings);
+      exportSchedulePdf(schedules, effectiveSettings);
       showSuccess('Jadwal Pelaksanaan Ujian resmi berhasil diunduh dalam format PDF!');
     } catch (e: unknown) {
       showSuccess('Gagal mengekspor Jadwal PDF: ' + (e instanceof Error ? e.message : String(e)));
@@ -279,7 +299,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
 
   const handleExportCirculationPdf = () => {
     try {
-      exportCirculationPdf(students, rooms, settings, schedules, {
+      exportCirculationPdf(students, rooms, effectiveSettings, schedules, {
         includeRotation: true,
         pattern: 'rotate-room-forward',
       });
@@ -303,7 +323,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
 
   const handleExportDistributionMatrixPdf = () => {
     try {
-      exportDistributionMatrixPdf(students, rooms, settings);
+      exportDistributionMatrixPdf(students, rooms, effectiveSettings);
       showSuccess('Matriks Distribusi Peserta Ruang × Kelas (PDF) berhasil diunduh!');
     } catch (e: unknown) {
       showSuccess('Gagal mengekspor Matriks Distribusi PDF: ' + (e instanceof Error ? e.message : String(e)));
@@ -312,7 +332,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
 
   const handleExportInvigilatorSchedulePdf = () => {
     try {
-      exportInvigilatorSchedulePdf(rooms, schedules, settings);
+      exportInvigilatorSchedulePdf(rooms, schedules, effectiveSettings);
       showSuccess('Daftar Tugas Pengawas Ruang (PDF) berhasil diunduh!');
     } catch (e: unknown) {
       showSuccess('Gagal mengekspor Daftar Pengawas PDF: ' + (e instanceof Error ? e.message : String(e)));
@@ -321,7 +341,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
 
   const handleExportInvigilatorAttendancePdf = () => {
     try {
-      exportInvigilatorAttendancePdf(rooms, schedules, settings, {
+      exportInvigilatorAttendancePdf(rooms, schedules, effectiveSettings, {
         mode: invigilatorAttendanceMode,
         dayKey: invigilatorAttendanceMode === 'per-day' ? selectedInvigilatorDayKey : undefined,
       });
@@ -341,11 +361,12 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
 
   return (
     <div className="space-y-6">
+      <style media="print">{`@page { size: ${activePaperSpec.widthMm}mm ${activePaperSpec.heightMm}mm; margin: 10mm; }`}</style>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+      <div className="print:hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-            Pusat Ekspor & Pencetakan Dokumen
+            Pusat Ekspor &amp; Pencetakan Dokumen
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
             Unduh laporan rekapitulasi, daftar hadir resmi, kartu ujian, dan tempelan pintu dalam format Excel dan PDF
@@ -361,9 +382,43 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
         </button>
       </div>
 
+      {/* Paper Size Selector Bar */}
+      <div className="print:hidden bg-white border border-slate-200 rounded-lg p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wide flex items-center gap-1.5">
+            <Printer className="w-3.5 h-3.5 text-slate-700" />
+            <span>Pilihan Ukuran Kertas Cetak (PDF &amp; Browser Print)</span>
+          </h2>
+          <p className="text-2xs text-slate-500 mt-0.5">
+            Diterapkan otomatis ke seluruh dokumen PDF (Daftar Hadir, Kartu Ujian, Kartu Meja, Jadwal, Matriks, dan Daftar Pengawas).
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(Object.keys(PAPER_SIZE_OPTIONS) as PaperSize[]).map((key) => {
+            const spec = PAPER_SIZE_OPTIONS[key];
+            const isSelected = activePaperSize === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => handleSelectPaperSize(key)}
+                className={`px-3 py-1.5 text-xs font-bold rounded-md border transition-colors ${
+                  isSelected
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                    : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100'
+                }`}
+              >
+                {spec.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Success Notification */}
       {statusMessage && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg p-3 text-xs flex items-center gap-2">
+        <div className="print:hidden bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg p-3 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{statusMessage}</span>
         </div>
@@ -402,7 +457,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
               <p className="font-semibold text-slate-900">File Excel mencakup lembar kerja:</p>
               <ul className="space-y-1.5 list-disc list-inside text-slate-600">
                 <li>
-                  <strong className="text-slate-800">Sheet Rekapitulasi & Sirkulasi Ruang-Kelas:</strong> Ringkasan daya tampung, matriks distribusi Ruang &times; Kelas, rentang NIS, &amp; nama pengawas.
+                  <strong className="text-slate-800">Sheet Rekapitulasi, Pengawas &amp; Sirkulasi:</strong> Ringkasan daya tampung, matriks distribusi Ruang &times; Kelas, jadwal pengawas per hari &amp; sesi, serta rentang NIS.
                 </li>
                 <li>
                   <strong className="text-slate-800">Sheet Master Data:</strong> Seluruh {students.length} siswa dengan nomor peserta dan ruangan.
@@ -551,11 +606,11 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
                   onChange={(e) => setUseDailyInvigilatorsInAttendance(e.target.checked)}
                   className="rounded border-slate-300 text-slate-900 focus:ring-slate-900"
                 />
-                <span>Isi nama Pengawas otomatis sesuai jadwal Per Hari &amp; Ruang</span>
+                <span>Isi nama Pengawas otomatis sesuai jadwal Per Hari, Ruang &amp; Sesi</span>
               </label>
 
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-slate-600">
-                Format sesuai standar ({settings.schoolName}): kolom No, No. Peserta, Nama Peserta, Tanda Tangan zig-zag, Nilai + Rata-rata, serta TTD Pengawas &amp; Guru Mapel.
+                Format <strong>2 spasi</strong> ({activePaperSpec.shortLabel}, {settings.schoolName}): kolom No, No. Peserta, Nama Peserta, Tanda Tangan zig-zag, Nilai + Rata-rata, serta TTD Pengawas &amp; Guru Mapel.
               </div>
             </div>
           </div>
@@ -668,7 +723,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
               )}
 
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-slate-600">
-                Format Landscape A4: kolom No, No. Peserta, Nama Peserta, dan kolom <strong>Hari, tanggal</strong> otomatis dari jadwal ujian dilengkapi baris <strong>Jumlah hadir</strong> &amp; <strong>Paraf Pengawas</strong>.
+                Format Landscape {activePaperSpec.shortLabel}: kolom No, No. Peserta, Nama Peserta, dan kolom <strong>Hari, tanggal</strong> otomatis dari jadwal ujian dilengkapi baris <strong>Jumlah hadir</strong> &amp; <strong>Paraf Pengawas</strong>.
               </div>
             </div>
           </div>
@@ -744,7 +799,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
               <div>
                 <h2 className="text-base font-bold text-slate-900">Kartu Peserta Ujian (PDF)</h2>
                 <p className="text-xs text-slate-500">
-                  Kartu resmi per siswa siap potong (4 kartu per lembar kertas A4)
+                  Kartu resmi per siswa siap potong (2 kartu per lembar kertas {activePaperSpec.shortLabel})
                 </p>
               </div>
             </div>
@@ -769,7 +824,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
               </div>
 
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-slate-600">
-                Dilengkapi identitas lengkap siswa (NIS/NISN, nama, kelas, ruang & nomor meja), jadwal mata pelajaran lengkap dengan <strong>kolom paraf pengawas ruang</strong>, pas foto 2x3, tanda tangan panitia, dan batas gunting resmi.
+                Fokus pada identitas siswa (NIS/NISN, nama, kelas, ruang &amp; nomor meja), pas foto 2x3, jadwal ujian bergaris tabel tegas dengan <strong>kolom paraf pengawas ruang</strong>, dan batas gunting resmi.
               </div>
             </div>
           </div>
@@ -852,8 +907,8 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
                     onChange={(e) => setDeskCardsPerPage(Number(e.target.value) === 10 ? 10 : 8)}
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none"
                   >
-                    <option value={8}>8 Kartu / Halaman A4 (2 &times; 4)</option>
-                    <option value={10}>10 Kartu / Halaman A4 (2 &times; 5)</option>
+                    <option value={8}>8 Kartu / Halaman {activePaperSpec.shortLabel} (2 &times; 4)</option>
+                    <option value={10}>10 Kartu / Halaman {activePaperSpec.shortLabel} (2 &times; 5)</option>
                   </select>
                 </div>
 
@@ -1073,7 +1128,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Lembar Per Hari (A4 Portrait)
+                    Lembar Per Hari ({activePaperSpec.shortLabel} Portrait)
                   </button>
                 </div>
               </div>
@@ -1101,7 +1156,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
               )}
 
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-slate-600">
-                Tersedia 2 dokumen resmi: <strong>Daftar Tugas Pengawas Ruang</strong> (jadwal Ruang &times; Hari) dan <strong>Daftar Hadir &amp; Tanda Tangan Pengawas</strong> (kolom TTD basah &amp; paraf Ketua Panitia).
+                Tersedia 2 dokumen resmi: <strong>Daftar Tugas Pengawas Ruang</strong> (jadwal Ruang &times; Hari &times; Sesi) dan <strong>Daftar Hadir &amp; Tanda Tangan Pengawas</strong> (kolom TTD basah &amp; paraf Ketua Panitia).
               </div>
             </div>
           </div>

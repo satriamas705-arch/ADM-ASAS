@@ -15,6 +15,7 @@ import { Student, Room, ExamSettings, ExamScheduleItem } from './types';
 import { defaultExamSettings, defaultRooms, sampleStudents, defaultExamSchedule } from './utils/sampleData';
 import { allocateStudentsToRooms } from './utils/allocator';
 import { applyCirculationDayToStudents, CirculationPattern } from './utils/circulation';
+import { syncStoredDocumentsWithSettings } from './utils/examDocuments';
 import { Check, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -493,6 +494,7 @@ export default function App() {
             rooms={rooms}
             settings={settings}
             schedules={schedules}
+            onUpdateSettings={setSettings}
           />
         )}
       </main>
@@ -517,8 +519,9 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
         onSave={(newSettings) => {
+          syncStoredDocumentsWithSettings(settings, newSettings);
           setSettings(newSettings);
-          showToast('Pengaturan sekolah & ujian berhasil disimpan!');
+          showToast('Pengaturan sekolah, pejabat & tanggal pengesahan berhasil disimpan dan disinkronkan!');
         }}
       />
     </div>

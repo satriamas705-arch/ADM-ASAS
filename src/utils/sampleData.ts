@@ -115,6 +115,9 @@ export const defaultExamSettings: ExamSettings = {
   headmasterNip: '19680315 199303 1 004',
   committeeHead: 'Siti Rahmawati, S.Pd., M.Si.',
   committeeNip: '19750820 200212 2 001',
+  signatureCity: 'Jakarta Pusat',
+  signatureDate: '20 Oktober 2026',
+  paperSize: 'a4',
 };
 
 export const defaultRooms: Room[] = [

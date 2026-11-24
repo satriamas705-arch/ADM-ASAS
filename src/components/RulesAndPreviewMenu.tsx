@@ -48,9 +48,13 @@ import {
   HandoverBeritaAcaraRecord,
   HandoverDirectionMode,
   DailyRoomInvigilatorAssignment,
+  PaperSize,
 } from '../types';
 import { DEFAULT_PEMDA_LOGO, DEFAULT_SCHOOL_LOGO } from '../utils/defaultLogos';
+import { getClassColorTheme } from '../utils/classColors';
 import {
+  PAPER_SIZE_OPTIONS,
+  getPaperSizeSpec,
   exportAttendancePdfForTarget,
   exportBundledAttendancePdfForTargets,
   exportAllSubjectsAttendancePdfForTargets,
@@ -80,13 +84,17 @@ import {
   saveHandoverRecords,
   resolveJournalRecord,
   resolveHandoverRecord,
+  extractCityFromAddress,
   extractCityFromSettings,
+  extractSignatureDateFromSettings,
   getOrderedClassNames,
   getOrderedClassNamesInRoom,
   getRoomClassPairs,
   getStudentsForAttendanceTarget,
-  getRoomDayInvigilators,
+  getRoomDaySessionInvigilator,
+  getSessionDisplayLabel,
   syncStoredDocumentsWithDailyInvigilators,
+  syncStoredDocumentsWithSettings,
 } from '../utils/examDocuments';
 import {
   JournalControlBar,
@@ -170,6 +178,18 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
 
   const selectedDayGroup =
     examDayGroups.find((dg) => dg.dayKey === selectedDayKey) || examDayGroups[0];
+  const [selectedSeatingScheduleId, setSelectedSeatingScheduleId] = useState<string>(
+    selectedDayGroup?.sessions[0]?.id || ''
+  );
+
+  useEffect(() => {
+    const sessions = selectedDayGroup?.sessions || [];
+    if (sessions.length > 0 && !sessions.some((s) => s.id === selectedSeatingScheduleId)) {
+      setSelectedSeatingScheduleId(sessions[0].id);
+    } else if (sessions.length === 0 && selectedSeatingScheduleId !== '') {
+      setSelectedSeatingScheduleId('');
+    }
+  }, [selectedDayGroup, selectedSeatingScheduleId]);
 
   // Persistent Jurnal Harian & BA Serah Terima state
   const [journalMap, setJournalMap] = useState<Record<string, DailyRoomJournalRecord>>(() =>
@@ -195,7 +215,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
       dayDateText: firstSch ? `${firstSch.day}, ${firstSch.date}` : settings.examDate || '',
       subjectText: firstSch?.subject || 'Ilmu Pengetahuan Alam',
       cityLabel: extractCityFromSettings(settings),
-      dateLine: '_____________________',
+      dateLine: extractSignatureDateFromSettings(settings, '_____________________'),
       invigilatorName: '',
       subjectTeacherName: '',
     };
@@ -208,7 +228,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
       dayDateText: firstSch ? `${firstSch.day}, ${firstSch.date}` : settings.examDate || '',
       subjectText: firstSch?.subject || 'Ilmu Pengetahuan Alam',
       cityLabel: extractCityFromSettings(settings),
-      dateLine: '_____________________',
+      dateLine: extractSignatureDateFromSettings(settings, '_____________________'),
       invigilatorName: '',
       subjectTeacherName: '',
     });
@@ -218,6 +238,37 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
   // Form states for Kop & Rules
   const [formData, setFormData] = useState<ExamSettings>({ ...settings });
   const [savedFeedback, setSavedFeedback] = useState<string | null>(null);
+  const prevSettingsRef = useRef<ExamSettings>(settings);
+
+  useEffect(() => {
+    const prev = prevSettingsRef.current;
+    if (prev === settings) return;
+
+    setFormData({ ...settings });
+
+    const prevCity = extractCityFromSettings(prev);
+    const nextCity = extractCityFromSettings(settings);
+    const prevDate = extractSignatureDateFromSettings(prev, '_____________________');
+    const nextDate = extractSignatureDateFromSettings(settings, '_____________________');
+
+    if (prevCity !== nextCity || prevDate !== nextDate) {
+      setAttendanceConfig((curr) => ({
+        ...curr,
+        cityLabel:
+          !curr.cityLabel || curr.cityLabel === prevCity ? nextCity : curr.cityLabel,
+        dateLine:
+          !curr.dateLine ||
+          curr.dateLine === prevDate ||
+          curr.dateLine === '_____________________'
+            ? nextDate
+            : curr.dateLine,
+      }));
+      setJournalMap(loadJournalRecords());
+      setHandoverMap(loadHandoverRecords());
+    }
+
+    prevSettingsRef.current = settings;
+  }, [settings]);
 
   // File upload refs
   const fileInputPemdaRef = useRef<HTMLInputElement>(null);
@@ -238,6 +289,21 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
   const showFeedback = (msg: string) => {
     setSavedFeedback(msg);
     setTimeout(() => setSavedFeedback(null), 3500);
+  };
+
+  const activePaperSpec = getPaperSizeSpec(settings.paperSize);
+  const handleChangePaperSize = (paperSize: PaperSize) => {
+    const nextSettings: ExamSettings = {
+      ...settings,
+      paperSize,
+    };
+    setFormData((prev) => ({ ...prev, paperSize }));
+    if (onUpdateSettingsOnly) {
+      onUpdateSettingsOnly(nextSettings);
+    } else {
+      onUpdateSettings(nextSettings);
+    }
+    showFeedback(`Ukuran kertas cetak diubah ke ${getPaperSizeSpec(paperSize).label}.`);
   };
 
   // Desk Card preview config & class color handlers
@@ -425,16 +491,19 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
 
   const handleSaveDailyInvigilators = (
     dailyMap: Record<string, DailyRoomInvigilatorAssignment>,
+    sessionMap: Record<string, string>,
     updatedRooms: Room[],
     message: string
   ) => {
     const nextSettings: ExamSettings = {
       ...settings,
       dailyInvigilators: dailyMap,
+      sessionInvigilators: sessionMap,
     };
     setFormData((prev) => ({
       ...prev,
       dailyInvigilators: dailyMap,
+      sessionInvigilators: sessionMap,
     }));
 
     if (onUpdateSettingsOnly) {
@@ -446,7 +515,8 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
     const synced = syncStoredDocumentsWithDailyInvigilators(
       dailyMap,
       updatedRooms,
-      examDayGroups
+      examDayGroups,
+      sessionMap
     );
     setJournalMap(synced.journalMap);
     setHandoverMap(synced.handoverMap);
@@ -652,10 +722,40 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
     handleApplyRoomCount(rooms.length - 1);
   };
 
-  const handleSaveSettings = (e?: React.FormEvent) => {
+  const handleSaveSettings = (e?: React.FormEvent, skipReallocate = false) => {
     if (e) e.preventDefault();
-    onUpdateSettings(formData);
-    showFeedback('Pengaturan aturan & identitas kop surat berhasil disimpan!');
+    const syncedDocs = syncStoredDocumentsWithSettings(settings, formData);
+    setJournalMap(syncedDocs.journalMap);
+    setHandoverMap(syncedDocs.handoverMap);
+
+    const prevCity = extractCityFromSettings(settings);
+    const nextCity = extractCityFromSettings(formData);
+    const prevDate = extractSignatureDateFromSettings(settings, '_____________________');
+    const nextDate = extractSignatureDateFromSettings(formData, '_____________________');
+
+    setAttendanceConfig((curr) => ({
+      ...curr,
+      cityLabel:
+        !curr.cityLabel || curr.cityLabel === prevCity || prevCity !== nextCity
+          ? nextCity
+          : curr.cityLabel,
+      dateLine:
+        !curr.dateLine ||
+        curr.dateLine === prevDate ||
+        curr.dateLine === '_____________________' ||
+        prevDate !== nextDate
+          ? nextDate
+          : curr.dateLine,
+    }));
+
+    if (skipReallocate && onUpdateSettingsOnly) {
+      onUpdateSettingsOnly(formData);
+    } else {
+      onUpdateSettings(formData);
+    }
+    showFeedback(
+      'Pengaturan kop, pejabat penandatangan, tempat & tanggal berhasil disimpan dan disinkronkan ke seluruh dokumen!'
+    );
   };
 
   // Chair rules: Apply uniform capacity to all rooms
@@ -706,7 +806,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+      <div className="print:hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
             Menu Aturan & Pratinjau Dokumen
@@ -754,7 +854,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
             }`}
           >
             <ImageIcon className="w-3.5 h-3.5" />
-            <span>Kop & Logo Sekolah</span>
+            <span>Kop, Logo & Pengesahan</span>
           </button>
         </div>
       </div>
@@ -1473,7 +1573,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
               </div>
             </div>
 
-            {/* 4. Tabel Monitoring & Input Pengawas Per Hari & Per Ruang */}
+            {/* 4. Tabel Monitoring & Input Pengawas Per Hari, Ruang & Sesi */}
             <div className="pt-2">
               <DailyInvigilatorMatrix
                 rooms={rooms}
@@ -1481,8 +1581,8 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                 settings={{ ...settings, maxSeatRule: formData.maxSeatRule }}
                 onSave={handleSaveDailyInvigilators}
                 showRoomConfigColumns={true}
-                title={`Daftar, Pengawas (Per Hari & Ruang) & Konfigurasi ${rooms.length} Ruang Ujian Aktif`}
-                subtitle={`Total Kapasitas: ${totalCapacity} kursi | Distribusi: ${(formData.roomDistributionMode || 'fill-first') === 'fill-first' ? 'Isi Penuh' : 'Pemerataan'} | Atur pengawas tiap hari ujian dan tiap ruang di bawah ini.`}
+                title={`Daftar, Pengawas (Per Hari, Ruang & Sesi) & Konfigurasi ${rooms.length} Ruang Ujian Aktif`}
+                subtitle={`Total Kapasitas: ${totalCapacity} kursi | Distribusi: ${(formData.roomDistributionMode || 'fill-first') === 'fill-first' ? 'Isi Penuh' : 'Pemerataan'} | Atur pengawas tiap hari, sesi ujian, dan tiap ruang di bawah ini.`}
               />
             </div>
 
@@ -1638,7 +1738,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
             </div>
 
             {/* School Text Details */}
-            <form onSubmit={handleSaveSettings} className="space-y-4 text-xs pt-3 border-t border-slate-200">
+            <form onSubmit={(e) => handleSaveSettings(e, true)} className="space-y-4 text-xs pt-3 border-t border-slate-200">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
                   Nama Pemerintah Daerah / Yayasan (Baris 1 Kop)
@@ -1760,54 +1860,226 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                 </div>
               </div>
 
-              {/* LIVE PREVIEW OF KOP SURAT */}
-              <div className="pt-4">
-                <span className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-                  Pratinjau Hasil Desain Kop Surat Resmi (Garis Ganda & Dua Logo)
-                </span>
+              {/* PEJABAT PENANDATANGAN, TEMPAT & TANGGAL DOKUMEN */}
+              <div className="pt-4 border-t border-slate-200 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                      Pejabat Penandatangan, Tempat &amp; Tanggal Pengesahan Dokumen
+                    </h3>
+                    <p className="text-2xs text-slate-500 mt-0.5">
+                      Otomatis tersinkron ke seluruh pratinjau &amp; ekspor PDF/Excel (Kartu Peserta, Jadwal Ujian, Daftar Hadir, Jurnal Harian, Berita Acara, Matriks Distribusi, serta Daftar &amp; Hadir Pengawas).
+                    </p>
+                  </div>
+                </div>
 
-                <div className="bg-white border border-slate-300 p-6 rounded-lg shadow-xs">
-                  <div className="flex items-center justify-between gap-4 pb-3">
-                    {/* Left: Pemda Logo */}
-                    <div className="w-16 h-16 flex items-center justify-center shrink-0">
-                      <img
-                        src={formData.logoLeftPemda || DEFAULT_PEMDA_LOGO}
-                        alt="Logo Pemda"
-                        className="max-w-full max-h-full object-contain"
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/70 border border-slate-200 rounded-lg p-4">
+                  {/* Kepala Sekolah */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        Nama Kepala Sekolah *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.headmaster}
+                        onChange={(e) => setFormData({ ...formData, headmaster: e.target.value })}
+                        placeholder="Contoh: Drs. H. Mulyadi, M.Pd."
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none font-semibold"
                       />
                     </div>
-
-                    {/* Center: Kop Typography */}
-                    <div className="flex-1 text-center space-y-0.5">
-                      <p className="text-xs font-semibold text-slate-900 tracking-wider">
-                        {formData.governmentName || 'PEMERINTAH DAERAH'}
-                      </p>
-                      <h3 className="text-base sm:text-lg font-bold text-slate-950 tracking-tight font-serif uppercase">
-                        {formData.schoolName || 'NAMA SATUAN PENDIDIKAN'}
-                      </h3>
-                      <p className="text-2xs text-slate-600">
-                        {formData.schoolAddress}
-                        {formData.schoolPhone ? ` | Telp: ${formData.schoolPhone}` : ''}
-                        {formData.postalCode ? ` Kode Pos ${formData.postalCode}` : ''}
-                      </p>
-                      <p className="text-2xs text-slate-500 font-mono">
-                        {formData.schoolEmail ? `Email: ${formData.schoolEmail}` : ''}
-                        {formData.schoolWebsite ? ` | Website: ${formData.schoolWebsite}` : ''}
-                      </p>
-                    </div>
-
-                    {/* Right: School Logo */}
-                    <div className="w-16 h-16 flex items-center justify-center shrink-0">
-                      <img
-                        src={formData.logoRightSchool || DEFAULT_SCHOOL_LOGO}
-                        alt="Logo Sekolah"
-                        className="max-w-full max-h-full object-contain"
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        NIP Kepala Sekolah
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.headmasterNip}
+                        onChange={(e) => setFormData({ ...formData, headmasterNip: e.target.value })}
+                        placeholder="Contoh: 19680315 199303 1 004 (atau -)"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none font-mono"
                       />
                     </div>
                   </div>
 
-                  {/* Official Double Border Line Divider */}
-                  <div className="w-full border-b-[3px] border-b-black border-double pt-1" />
+                  {/* Ketua Panitia */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        Nama Ketua Panitia Ujian *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.committeeHead}
+                        onChange={(e) => setFormData({ ...formData, committeeHead: e.target.value })}
+                        placeholder="Contoh: Siti Rahmawati, S.Pd., M.Si."
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        NIP Ketua Panitia
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.committeeNip}
+                        onChange={(e) => setFormData({ ...formData, committeeNip: e.target.value })}
+                        placeholder="Contoh: 19750820 200212 2 001 (atau -)"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Tempat / Kota Penandatanganan */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block font-semibold text-slate-700">
+                        Tempat / Kota Penandatanganan
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData({
+                            ...formData,
+                            signatureCity: extractCityFromAddress(formData.schoolAddress),
+                          })
+                        }
+                        className="text-2xs font-semibold text-slate-600 hover:text-slate-900 underline"
+                      >
+                        Ambil dari Alamat
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={formData.signatureCity ?? ''}
+                      onChange={(e) => setFormData({ ...formData, signatureCity: e.target.value })}
+                      placeholder={`Otomatis: ${extractCityFromAddress(formData.schoolAddress)}`}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none"
+                    />
+                    <p className="text-2xs text-slate-500 mt-1">
+                      Jika dikosongkan, kota akan diambil otomatis dari bagian akhir Alamat Sekolah.
+                    </p>
+                  </div>
+
+                  {/* Tanggal Penandatanganan */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block font-semibold text-slate-700">
+                        Tanggal Penandatanganan / Pengesahan
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData({
+                            ...formData,
+                            signatureDate: '_____________________',
+                          })
+                        }
+                        className="text-2xs font-semibold text-slate-600 hover:text-slate-900 underline"
+                      >
+                        Garis Kosong (_____)
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={formData.signatureDate ?? ''}
+                      onChange={(e) => setFormData({ ...formData, signatureDate: e.target.value })}
+                      placeholder="Contoh: 20 Oktober 2026 (atau kosongkan)"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none"
+                    />
+                    <p className="text-2xs text-slate-500 mt-1">
+                      Tampil di blok tanda tangan sebelah tempat/kota (misal: {extractCityFromSettings(formData)}, {extractSignatureDateFromSettings(formData)}).
+                    </p>
+                  </div>
+
+                  {/* Rentang Tanggal Pelaksanaan Ujian */}
+                  <div className="md:col-span-2">
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Rentang Tanggal Pelaksanaan Ujian
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.examDate}
+                      onChange={(e) => setFormData({ ...formData, examDate: e.target.value })}
+                      placeholder="Contoh: 20 - 25 Oktober 2026"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* LIVE PREVIEW OF KOP SURAT & PENGESAHAN */}
+              <div className="pt-4 space-y-3">
+                <span className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Pratinjau Hasil Desain Kop Surat Resmi &amp; Blok Pengesahan Dokumen
+                </span>
+
+                <div className="bg-white border border-slate-300 p-6 rounded-lg shadow-xs space-y-5">
+                  <div>
+                    <div className="flex items-center justify-between gap-4 pb-3">
+                      {/* Left: Pemda Logo */}
+                      <div className="w-16 h-16 flex items-center justify-center shrink-0">
+                        <img
+                          src={formData.logoLeftPemda || DEFAULT_PEMDA_LOGO}
+                          alt="Logo Pemda"
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      </div>
+
+                      {/* Center: Kop Typography */}
+                      <div className="flex-1 text-center space-y-0.5">
+                        <p className="text-xs font-semibold text-slate-900 tracking-wider">
+                          {formData.governmentName || 'PEMERINTAH DAERAH'}
+                        </p>
+                        <h3 className="text-base sm:text-lg font-bold text-slate-950 tracking-tight font-serif uppercase">
+                          {formData.schoolName || 'NAMA SATUAN PENDIDIKAN'}
+                        </h3>
+                        <p className="text-2xs text-slate-600">
+                          {formData.schoolAddress}
+                          {formData.schoolPhone ? ` | Telp: ${formData.schoolPhone}` : ''}
+                          {formData.postalCode ? ` Kode Pos ${formData.postalCode}` : ''}
+                        </p>
+                        <p className="text-2xs text-slate-500 font-mono">
+                          {formData.schoolEmail ? `Email: ${formData.schoolEmail}` : ''}
+                          {formData.schoolWebsite ? ` | Website: ${formData.schoolWebsite}` : ''}
+                        </p>
+                      </div>
+
+                      {/* Right: School Logo */}
+                      <div className="w-16 h-16 flex items-center justify-center shrink-0">
+                        <img
+                          src={formData.logoRightSchool || DEFAULT_SCHOOL_LOGO}
+                          alt="Logo Sekolah"
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Official Double Border Line Divider */}
+                    <div className="w-full border-b-[3px] border-b-black border-double pt-1" />
+                  </div>
+
+                  {/* Preview of Footer Sign-off Block */}
+                  <div className="pt-2 border-t border-dashed border-slate-200 grid grid-cols-2 gap-6 text-center text-xs text-slate-900">
+                    <div>
+                      <p className="text-slate-600">Mengetahui,</p>
+                      <p className="font-semibold">Kepala Sekolah</p>
+                      <div className="h-10" />
+                      <p className="font-bold underline">{formData.headmaster || '-'}</p>
+                      <p className="text-2xs font-mono text-slate-600">NIP. {formData.headmasterNip || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-600">
+                        {extractCityFromSettings(formData)}, {extractSignatureDateFromSettings(formData)}
+                      </p>
+                      <p className="font-semibold">Ketua Panitia Ujian</p>
+                      <div className="h-10" />
+                      <p className="font-bold underline">{formData.committeeHead || '-'}</p>
+                      <p className="text-2xs font-mono text-slate-600">NIP. {formData.committeeNip || '-'}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1817,7 +2089,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                   className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  <span>Simpan Identitas Kop Surat</span>
+                  <span>Simpan Identitas Kop &amp; Pengesahan</span>
                 </button>
               </div>
             </form>
@@ -1828,10 +2100,19 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
       {/* ======================================================== */}
       {/* 3. TAMPILAN / PREVIEW DOKUMEN RESMI (A4 PAPER VIEW)      */}
       {/* ======================================================== */}
-      {subTab === 'preview' && (
+      {subTab === 'preview' && (() => {
+        const isLandscapeDoc =
+          previewDocType === 'attendance2' ||
+          previewDocType === 'distribution-matrix' ||
+          (previewDocType === 'invigilators' && invigilatorSubMode !== 'attendance-day');
+        const pageCssSize = isLandscapeDoc
+          ? `${activePaperSpec.heightMm}mm ${activePaperSpec.widthMm}mm`
+          : `${activePaperSpec.widthMm}mm ${activePaperSpec.heightMm}mm`;
+        return (
         <div className="space-y-4">
+          <style media="print">{`@page { size: ${pageCssSize}; margin: 10mm; }`}</style>
           {/* Document Type Switcher Bar */}
-          <div className="bg-white border border-slate-200 rounded-lg p-3.5 flex flex-wrap items-center justify-between gap-3">
+          <div className="print:hidden bg-white border border-slate-200 rounded-lg p-3.5 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-700">Pilih Dokumen:</span>
               <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-md">
@@ -2073,6 +2354,43 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                         </select>
                       </div>
                     )}
+
+                  {previewDocType === 'seating' && examDayGroups.length > 0 && (
+                    <>
+                      {examDayGroups.length > 1 && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-semibold text-slate-600">Hari:</span>
+                          <select
+                            value={selectedDayGroup?.dayKey || ''}
+                            onChange={(e) => setSelectedDayKey(e.target.value)}
+                            className="px-2.5 py-1.5 text-xs font-bold bg-white border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none"
+                          >
+                            {examDayGroups.map((dg) => (
+                              <option key={dg.dayKey} value={dg.dayKey}>
+                                Hari {dg.dayNumber}: {dg.day}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      {(selectedDayGroup?.sessions.length || 0) > 1 && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-semibold text-slate-600">Sesi:</span>
+                          <select
+                            value={selectedSeatingScheduleId || selectedDayGroup?.sessions[0]?.id || ''}
+                            onChange={(e) => setSelectedSeatingScheduleId(e.target.value)}
+                            className="px-2.5 py-1.5 text-xs font-bold bg-white border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none max-w-[200px] truncate"
+                          >
+                            {selectedDayGroup?.sessions.map((sch, idx) => (
+                              <option key={sch.id} value={sch.id}>
+                                {getSessionDisplayLabel(sch, idx)} · {sch.subject}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </>
               )}
 
@@ -2081,6 +2399,9 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                 onClick={() => {
                   if (previewDocType === 'door' && selectedRoom) exportDoorPosterPdf(selectedRoom, students, settings);
                   if (previewDocType === 'attendance' && activeAttendanceTarget) {
+                    const matchedSchedule = schedules.find(
+                      (s) => s.id === attendanceConfig.scheduleId
+                    );
                     exportAttendancePdfForTarget(activeAttendanceTarget, students, settings, {
                       dayDateText: attendanceConfig.dayDateText,
                       subjectText: attendanceConfig.subjectText,
@@ -2088,6 +2409,8 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                       dateLine: attendanceConfig.dateLine,
                       invigilatorName: attendanceConfig.invigilatorName,
                       subjectTeacherName: attendanceConfig.subjectTeacherName,
+                      useDailyInvigilators: attendanceConfig.invigilatorName.trim() !== '',
+                      schedule: matchedSchedule,
                     });
                   }
                   if (previewDocType === 'attendance2' && activeAttendanceTarget) {
@@ -2187,7 +2510,11 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
               {previewDocType === 'attendance' && (
                 <>
                   <button
-                    onClick={() =>
+                    onClick={() => {
+                      const matchedSchedule = schedules.find(
+                        (s) => s.id === attendanceConfig.scheduleId
+                      );
+                      const useDaily = attendanceConfig.invigilatorName.trim() !== '';
                       exportBundledAttendancePdfForTargets(
                         allBundleTargetsForMode,
                         students,
@@ -2197,16 +2524,21 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                           subjectText: attendanceConfig.subjectText,
                           cityLabel: attendanceConfig.cityLabel,
                           dateLine: attendanceConfig.dateLine,
-                          invigilatorName: attendanceConfig.invigilatorName,
+                          invigilatorName:
+                            attendanceGroupingMode === 'per-class' || !useDaily
+                              ? attendanceConfig.invigilatorName
+                              : undefined,
                           subjectTeacherName: attendanceConfig.subjectTeacherName,
+                          useDailyInvigilators: useDaily,
+                          schedule: matchedSchedule,
                         },
                         attendanceGroupingMode === 'per-room-class'
                           ? 'Daftar_Hadir_Semua_Ruang_Kelas'
                           : attendanceGroupingMode === 'per-class'
                             ? 'Daftar_Hadir_Semua_Kelas'
                             : 'Daftar_Hadir_Semua_Ruang'
-                      )
-                    }
+                      );
+                    }}
                     className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-md transition-colors"
                     title={`Unduh seluruh ${allBundleTargetsForMode.length} lembar untuk mapel ini`}
                   >
@@ -2356,10 +2688,28 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                 </button>
               )}
 
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded-md px-2 py-1">
+                <span className="text-[11px] font-bold text-slate-600 whitespace-nowrap">
+                  Kertas:
+                </span>
+                <select
+                  value={activePaperSpec.id}
+                  onChange={(e) => handleChangePaperSize(e.target.value as PaperSize)}
+                  className="text-xs font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer"
+                  title="Pilih Ukuran Kertas Cetak (PDF & Browser Print)"
+                >
+                  {Object.values(PAPER_SIZE_OPTIONS).map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <button
                 onClick={() => window.print()}
                 className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-md transition-colors"
-                title="Cetak via Browser"
+                title={`Cetak via Browser (${activePaperSpec.label})`}
               >
                 <Printer className="w-3.5 h-3.5 text-slate-500" />
                 <span className="hidden sm:inline">Cetak</span>
@@ -2443,13 +2793,22 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
             />
           )}
 
-          {/* REALISTIC A4 SHEET VIEWPORT */}
-          <div className="bg-slate-200/70 p-4 sm:p-8 rounded-xl overflow-x-auto flex justify-center">
+          <div className="print:hidden flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-700">
+            <span>
+              Ukuran Kertas Aktif:{' '}
+              <strong className="text-slate-900">{activePaperSpec.label}</strong> (
+              {isLandscapeDoc ? 'Landscape' : 'Portrait'})
+            </span>
+            <span className="text-slate-500">
+              Berlaku otomatis untuk Unduh PDF maupun tombol Cetak Browser.
+            </span>
+          </div>
+
+          {/* REALISTIC PAPER SHEET VIEWPORT */}
+          <div className="bg-slate-200/70 p-4 sm:p-8 rounded-xl overflow-x-auto flex justify-center print:bg-white print:p-0 print:rounded-none print:overflow-visible">
             <div
-              className={`bg-white shadow-xl border border-slate-300 w-full p-8 sm:p-12 text-slate-900 font-sans ${
-                previewDocType === 'attendance2' ||
-                previewDocType === 'distribution-matrix' ||
-                (previewDocType === 'invigilators' && invigilatorSubMode !== 'attendance-day')
+              className={`bg-white shadow-xl border border-slate-300 w-full p-8 sm:p-12 text-slate-900 font-sans print:shadow-none print:border-none print:p-0 print:max-w-none print:min-h-0 ${
+                isLandscapeDoc
                   ? 'max-w-[1050px] min-h-[740px]'
                   : 'max-w-[850px] min-h-[1100px]'
               }`}
@@ -2622,8 +2981,11 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                       <p className="text-2xs text-slate-400">Harap ditempel di daun pintu masuk ruang ujian.</p>
                     </div>
                     <div className="text-right">
+                      <p className="text-2xs text-slate-600">
+                        {extractCityFromSettings(settings)}, {extractSignatureDateFromSettings(settings)}
+                      </p>
                       <p className="font-semibold text-slate-900">{settings.schoolName}</p>
-                      <p className="text-2xs">Panitia Penyelenggara Ujian</p>
+                      <p className="text-2xs">Ketua Panitia: {settings.committeeHead}</p>
                     </div>
                   </div>
                 </div>
@@ -2633,41 +2995,25 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
               {/* DOC 2 PREVIEW: DENAH TEMPAT DUDUK (PHYSICAL SEAT GRID)   */}
               {/* ======================================================== */}
               {previewDocType === 'seating' && (() => {
-                const seatingInv =
+                const seatingSessions = selectedDayGroup?.sessions || [];
+                const activeSeatingSchedule =
+                  seatingSessions.find((s) => s.id === selectedSeatingScheduleId) ||
+                  seatingSessions[0];
+                const seatingInvName =
                   selectedRoom && selectedDayGroup
-                    ? getRoomDayInvigilators(selectedRoom, selectedDayGroup.dayKey, settings)
-                    : {
-                        invigilator1: selectedRoom?.invigilator1 || '',
-                      };
+                    ? getRoomDaySessionInvigilator(
+                        selectedRoom,
+                        selectedDayGroup.dayKey,
+                        activeSeatingSchedule?.id,
+                        settings
+                      )
+                    : selectedRoom?.invigilator1 || '';
                 return (
                 <div className="space-y-4">
-                  {examDayGroups.length > 1 && (
-                    <div className="print:hidden flex flex-wrap items-center justify-center gap-1.5 pb-1">
-                      {examDayGroups.map((dg) => (
-                        <button
-                          key={dg.dayKey}
-                          type="button"
-                          onClick={() => setSelectedDayKey(dg.dayKey)}
-                          className={`px-2 py-0.5 text-2xs font-semibold rounded border transition-colors ${
-                            dg.dayKey === selectedDayGroup?.dayKey
-                              ? 'bg-slate-900 text-white border-slate-900'
-                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                          }`}
-                        >
-                          Hari {dg.dayNumber}: {dg.day}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
                   <div className="text-center pb-2">
                     <h2 className="text-base font-bold text-slate-900 tracking-tight uppercase">
                       DENAH TATA LETAK TEMPAT DUDUK PESERTA
                     </h2>
-                    <p className="text-xs text-slate-600 font-medium">
-                      {selectedRoom?.name.toUpperCase()} &middot; {selectedRoom?.building} &middot; Kapasitas {selectedRoom?.capacity} Meja
-                      {selectedDayGroup ? ` · ${selectedDayGroup.day}, ${selectedDayGroup.date}` : ''}
-                    </p>
                   </div>
 
                   {/* Blackboard & Invigilator Desk */}
@@ -2679,10 +3025,35 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                     <div className="w-64 mx-auto bg-amber-50 border border-amber-300 rounded p-2 text-center text-xs text-amber-900">
                       <strong>MEJA PENGAWAS RUANG</strong>
                       <p className="text-2xs truncate">
-                        {seatingInv.invigilator1 || '-'}
+                        {seatingInvName || '-'}
                       </p>
                     </div>
                   </div>
+
+                  {/* Class Color Legend (matching Desk Cards) */}
+                  {classesInSelectedRoom.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
+                      <span className="text-2xs font-bold text-slate-600 uppercase tracking-wide mr-1">
+                        Warna Kelas:
+                      </span>
+                      {classesInSelectedRoom.map((cls) => {
+                        const theme = getClassColorTheme(
+                          cls,
+                          orderedClasses,
+                          settings.classColors
+                        );
+                        return (
+                          <span
+                            key={cls}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-2xs font-bold ${theme.badgeBgClass} ${theme.borderClass} ${theme.badgeTextClass}`}
+                          >
+                            <span className={`w-2 h-2 rounded-xs shrink-0 ${theme.swatchClass}`} />
+                            <span>{cls}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {/* Desk Grid */}
                   <div
@@ -2696,25 +3067,32 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                       const student = roomStudents.find((s) => s.seatNumber === seatNo);
 
                       if (student) {
+                        const theme = getClassColorTheme(
+                          student.className,
+                          orderedClasses,
+                          settings.classColors
+                        );
                         return (
                           <div
                             key={seatNo}
-                            className="border border-slate-300 rounded p-2 text-left bg-slate-50/80 shadow-2xs space-y-1"
+                            className={`border-2 ${theme.borderClass} ${theme.cardBgClass} rounded p-2 text-left shadow-2xs space-y-1`}
                           >
-                            <div className="flex items-center justify-between border-b border-slate-200 pb-1">
-                              <span className="font-mono text-2xs font-bold text-slate-900">
+                            <div className={`flex items-center justify-between border-b ${theme.borderClass} pb-1`}>
+                              <span className={`px-1.5 py-0.5 rounded font-mono text-2xs font-bold ${theme.seatBoxBgClass} ${theme.seatBoxTextClass}`}>
                                 Meja {String(seatNo).padStart(2, '0')}
                               </span>
-                              <span className="font-mono text-2xs font-bold text-slate-700">
+                              <span className={`px-1 rounded font-mono text-2xs font-bold ${theme.badgeBgClass} ${theme.badgeTextClass}`}>
                                 ({student.gender})
                               </span>
                             </div>
                             <p className="text-xs font-bold text-slate-950 truncate leading-tight" title={student.name}>
                               {student.name}
                             </p>
-                            <div className="flex items-center justify-between text-2xs text-slate-600 font-mono">
+                            <div className="flex items-center justify-between text-2xs text-slate-700 font-mono gap-1">
                               <span>{student.nis}</span>
-                              <span className="font-sans font-medium">{student.className}</span>
+                              <span className={`px-1.5 py-0.5 rounded font-sans text-3xs font-bold truncate ${theme.badgeBgClass} ${theme.badgeTextClass}`}>
+                                {student.className}
+                              </span>
                             </div>
                           </div>
                         );
@@ -2740,10 +3118,13 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                   {/* Supervisor Signature Block */}
                   <div className="pt-6 flex justify-end text-center text-xs text-slate-800 pr-8">
                     <div>
+                      <p>
+                        {extractCityFromSettings(settings)}, {extractSignatureDateFromSettings(settings)}
+                      </p>
                       <p>Mengetahui,</p>
                       <p className="font-bold">Pengawas Ruang</p>
                       <div className="h-14" />
-                      <p className="font-bold underline">({seatingInv.invigilator1 || '.....................................'})</p>
+                      <p className="font-bold underline">({seatingInvName || '.....................................'})</p>
                     </div>
                   </div>
                 </div>
@@ -2775,16 +3156,16 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
               )}
 
               {/* ======================================================== */}
-              {/* DOC 4 PREVIEW: KARTU PESERTA UJIAN (A4 SHEET)            */}
+              {/* DOC 4 PREVIEW: KARTU PESERTA UJIAN                       */}
               {/* ======================================================== */}
               {previewDocType === 'card' && (
                 <div className="space-y-6">
                   {/* Top info badge */}
-                  <div className="bg-slate-100 border border-slate-300 rounded p-2.5 text-xs text-slate-700 flex flex-wrap items-center justify-between gap-2">
+                  <div className="print:hidden bg-slate-100 border border-slate-300 rounded p-2.5 text-xs text-slate-700 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <CreditCard className="w-4 h-4 text-slate-700" />
                       <span>
-                        Format Cetak Standar: <strong>2 Kartu per Lembar Kertas A4</strong> (Siap Potong & Dilaminasi)
+                        Format Cetak Standar: <strong>2 Kartu per Lembar Kertas {activePaperSpec.shortLabel}</strong> (Siap Potong &amp; Dilaminasi)
                       </span>
                     </div>
                     <span className="font-mono text-2xs text-slate-500">
@@ -2792,7 +3173,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                     </span>
                   </div>
 
-                  {/* Render 2 stacked cards as they would physically appear on the A4 page */}
+                  {/* Render 2 stacked cards as they would physically appear on the sheet */}
                   {[
                     selectedStudent,
                     students.find((s) => s.id !== selectedStudent?.id) || selectedStudent,
@@ -2801,9 +3182,9 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                     return (
                       <React.Fragment key={cardIdx}>
                         {/* The Exam Card Container */}
-                        <div className="border-2 border-slate-800 rounded-lg p-5 bg-white shadow-2xs space-y-4">
+                        <div className="border-2 border-black rounded-lg p-5 bg-white shadow-2xs space-y-4">
                           {/* Card Kop Surat with Dual Logos */}
-                          <div className="flex items-center justify-between gap-3 border-b-2 border-slate-800 pb-2.5">
+                          <div className="flex items-center justify-between gap-3 border-b-2 border-black pb-2.5">
                             {/* Logo Kiri Pemda */}
                             <div className="w-12 h-12 flex items-center justify-center shrink-0">
                               <img
@@ -2818,7 +3199,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                               <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
                                 {settings.schoolName}
                               </h3>
-                              <h2 className="text-sm font-black text-slate-950 uppercase tracking-wider font-serif">
+                              <h2 className="text-sm font-black text-black uppercase tracking-wider font-serif">
                                 KARTU PESERTA UJIAN
                               </h2>
                               <p className="text-2xs font-semibold text-slate-700 uppercase">
@@ -2839,91 +3220,91 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                           {/* Student Identity Grid & Photo */}
                           <div className="flex gap-4 items-start">
                             {/* 2x3 Photo Box */}
-                            <div className="w-20 h-26 rounded border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center text-center p-1 shrink-0">
+                            <div className="w-20 h-26 rounded border-2 border-slate-800 bg-slate-50 flex flex-col items-center justify-center text-center p-1 shrink-0">
                               <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 mb-1">
                                 <Users className="w-4 h-4" />
                               </div>
-                              <span className="text-3xs font-bold text-slate-400 uppercase">Pas Foto</span>
-                              <span className="text-3xs text-slate-400">2 x 3 cm</span>
+                              <span className="text-3xs font-bold text-slate-600 uppercase">Pas Foto</span>
+                              <span className="text-3xs text-slate-500">2 x 3 cm</span>
                             </div>
 
                             {/* Identity Fields */}
-                            <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                            <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                               <div className="flex items-baseline">
-                                <span className="w-24 text-slate-500 text-2xs">No. Peserta</span>
-                                <span className="text-slate-400 mr-2 text-2xs">:</span>
-                                <span className="font-mono font-bold text-slate-950 text-2xs">
+                                <span className="w-24 text-slate-600 text-2xs">No. Peserta</span>
+                                <span className="text-slate-500 mr-2 text-2xs">:</span>
+                                <span className="font-mono font-bold text-black text-2xs">
                                   {cardStudent.participantNo || 'UJN-001'}
                                 </span>
                               </div>
 
                               <div className="flex items-baseline">
-                                <span className="w-24 text-slate-500 text-2xs">Ruang / Meja</span>
-                                <span className="text-slate-400 mr-2 text-2xs">:</span>
-                                <span className="font-mono font-bold text-slate-950 text-2xs">
+                                <span className="w-24 text-slate-600 text-2xs">Ruang / Meja</span>
+                                <span className="text-slate-500 mr-2 text-2xs">:</span>
+                                <span className="font-mono font-bold text-black text-2xs">
                                   {cardStudent.roomName || 'Ruang 01'} (Meja {String(cardStudent.seatNumber || 1).padStart(2, '0')})
                                 </span>
                               </div>
 
                               <div className="flex items-baseline">
-                                <span className="w-24 text-slate-500 text-2xs">NIS / NISN</span>
-                                <span className="text-slate-400 mr-2 text-2xs">:</span>
-                                <span className="font-mono font-semibold text-slate-900 text-2xs">
+                                <span className="w-24 text-slate-600 text-2xs">NIS / NISN</span>
+                                <span className="text-slate-500 mr-2 text-2xs">:</span>
+                                <span className="font-mono font-semibold text-black text-2xs">
                                   {cardStudent.nis} / {cardStudent.nisn || '-'}
                                 </span>
                               </div>
 
                               <div className="flex items-baseline">
-                                <span className="w-24 text-slate-500 text-2xs">Kelas / Rombel</span>
-                                <span className="text-slate-400 mr-2 text-2xs">:</span>
-                                <span className="font-semibold text-slate-900 text-2xs">
+                                <span className="w-24 text-slate-600 text-2xs">Kelas / Rombel</span>
+                                <span className="text-slate-500 mr-2 text-2xs">:</span>
+                                <span className="font-semibold text-black text-2xs">
                                   {cardStudent.className}
                                 </span>
                               </div>
 
                               <div className="flex items-baseline col-span-2">
-                                <span className="w-24 text-slate-500 text-2xs">Nama Peserta</span>
-                                <span className="text-slate-400 mr-2 text-2xs">:</span>
-                                <span className="font-bold text-slate-950 uppercase text-xs">
+                                <span className="w-24 text-slate-600 text-2xs">Nama Peserta</span>
+                                <span className="text-slate-500 mr-2 text-2xs">:</span>
+                                <span className="font-bold text-black uppercase text-xs">
                                   {cardStudent.name}
                                 </span>
                               </div>
 
                               <div className="flex items-baseline">
-                                <span className="w-24 text-slate-500 text-2xs">Jenis Kelamin</span>
-                                <span className="text-slate-400 mr-2 text-2xs">:</span>
-                                <span className="text-slate-800 text-2xs">
+                                <span className="w-24 text-slate-600 text-2xs">Jenis Kelamin</span>
+                                <span className="text-slate-500 mr-2 text-2xs">:</span>
+                                <span className="text-slate-900 text-2xs">
                                   {cardStudent.gender === 'L' ? 'Laki-Laki (L)' : 'Perempuan (P)'}
                                 </span>
                               </div>
 
                               <div className="flex items-baseline">
-                                <span className="w-24 text-slate-500 text-2xs">Sesi Ujian</span>
-                                <span className="text-slate-400 mr-2 text-2xs">:</span>
-                                <span className="text-slate-800 text-2xs">
+                                <span className="w-24 text-slate-600 text-2xs">Sesi Ujian</span>
+                                <span className="text-slate-500 mr-2 text-2xs">:</span>
+                                <span className="text-slate-900 text-2xs">
                                   {settings.examSession}
                                 </span>
                               </div>
                             </div>
                           </div>
 
-                          {/* Timetable AutoTable with TTD/Paraf Pengawas Ruang */}
-                          <div className="border border-slate-300 rounded overflow-hidden">
-                            <table className="w-full text-left text-2xs">
+                          {/* Timetable AutoTable with Bold Table Borders & Paraf Pengawas (Focused Exam Card) */}
+                          <div className="border-2 border-black rounded overflow-hidden">
+                            <table className="w-full text-left text-2xs border-collapse">
                               <thead className="bg-slate-900 text-white font-semibold">
                                 <tr>
-                                  <th className="py-1 px-2 w-7 text-center">No</th>
-                                  <th className="py-1 px-2 w-32">Hari / Tanggal</th>
-                                  <th className="py-1 px-2 w-28 text-center">Waktu</th>
-                                  <th className="py-1 px-2">Mata Pelajaran Ujian</th>
-                                  <th className="py-1 px-2 w-28 text-center bg-slate-800">
+                                  <th className="py-1.5 px-2 w-8 text-center border-b border-r border-slate-700">No</th>
+                                  <th className="py-1.5 px-2 w-32 border-b border-r border-slate-700">Hari / Tanggal</th>
+                                  <th className="py-1.5 px-2 w-28 text-center border-b border-r border-slate-700">Waktu</th>
+                                  <th className="py-1.5 px-2 border-b border-r border-slate-700">Mata Pelajaran Ujian</th>
+                                  <th className="py-1.5 px-2 w-28 text-center bg-slate-800 border-b border-slate-700">
                                     Paraf Pengawas
                                   </th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-slate-200">
+                              <tbody>
                                 {(schedules.length > 0
-                                  ? schedules.slice(0, 6)
+                                  ? schedules.slice(0, 8)
                                   : [
                                       { id: '1', day: 'Senin', date: '20 Oktober 2026', time: '07.30 - 09.30', subject: 'Bahasa Indonesia' },
                                       { id: '2', day: 'Senin', date: '20 Oktober 2026', time: '10.00 - 11.30', subject: 'Pendidikan Agama' },
@@ -2933,61 +3314,33 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                                       { id: '6', day: 'Rabu', date: '22 Oktober 2026', time: '10.00 - 11.30', subject: 'Sejarah Indonesia' },
                                     ]
                                 ).map((sch, schIdx) => (
-                                  <tr key={sch.id} className="hover:bg-slate-50">
-                                    <td className="py-1 px-2 text-center font-mono text-slate-500 border-r border-slate-200">
+                                  <tr key={sch.id} className="even:bg-slate-50 border-b border-black last:border-b-0">
+                                    <td className="py-1.5 px-2 text-center font-mono font-bold text-slate-900 border-r border-black">
                                       {schIdx + 1}
                                     </td>
-                                    <td className="py-1 px-2 font-medium text-slate-800 border-r border-slate-200">
+                                    <td className="py-1.5 px-2 font-medium text-black border-r border-black">
                                       {sch.day}, {sch.date}
                                     </td>
-                                    <td className="py-1 px-2 text-center font-mono text-slate-600 border-r border-slate-200">
+                                    <td className="py-1.5 px-2 text-center font-mono text-black border-r border-black">
                                       {sch.time}
                                     </td>
-                                    <td className="py-1 px-2 font-semibold text-slate-900 border-r border-slate-200">
+                                    <td className="py-1.5 px-2 font-semibold text-black border-r border-black">
                                       {sch.subject}
                                     </td>
-                                    <td className="py-1 px-2 text-center bg-slate-50/70">
-                                      <div className="w-14 h-5 mx-auto border border-dashed border-slate-300 rounded flex items-center justify-center text-3xs text-slate-400 font-mono">
-                                        paraf
-                                      </div>
-                                    </td>
+                                    <td className="py-1.5 px-2 text-center">&nbsp;</td>
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
                           </div>
-
-                          {/* Bottom Official Signatures */}
-                          <div className="grid grid-cols-2 gap-6 text-xs text-center pt-1">
-                            <div>
-                              <p className="text-slate-600 text-2xs">Peserta Ujian,</p>
-                              <div className="h-11" />
-                              <p className="font-bold underline text-2xs uppercase">
-                                ({cardStudent.name})
-                              </p>
-                              <p className="text-3xs text-slate-400 font-mono">NIS: {cardStudent.nis}</p>
-                            </div>
-
-                            <div>
-                              <p className="text-slate-600 text-2xs">
-                                Jakarta, {settings.examDate.split('-')[0].trim() || '20 Oktober 2026'}
-                              </p>
-                              <p className="font-bold text-slate-800 text-2xs">Ketua Panitia Ujian,</p>
-                              <div className="h-9" />
-                              <p className="font-bold underline text-2xs">
-                                {settings.committeeHead}
-                              </p>
-                              <p className="text-3xs text-slate-500 font-mono">NIP. {settings.committeeNip}</p>
-                            </div>
-                          </div>
                         </div>
 
                         {/* Scissor Cutting Guideline Line between Card 1 and Card 2 */}
                         {cardIdx === 0 && (
-                          <div className="py-2 flex items-center justify-center gap-2 text-2xs font-mono text-slate-400">
-                            <span className="flex-1 border-b border-dashed border-slate-300" />
+                          <div className="py-2 flex items-center justify-center gap-2 text-2xs font-mono text-slate-500">
+                            <span className="flex-1 border-b border-dashed border-slate-400" />
                             <span>✂ - - - - - - Gunting Di Sini - - - - - - ✂</span>
-                            <span className="flex-1 border-b border-dashed border-slate-300" />
+                            <span className="flex-1 border-b border-dashed border-slate-400" />
                           </div>
                         )}
                       </React.Fragment>
@@ -3073,7 +3426,8 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

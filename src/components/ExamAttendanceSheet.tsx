@@ -4,6 +4,7 @@ import { Student, ExamSettings, ExamScheduleItem, ExamDayGroup } from '../types'
 import {
   AttendanceTarget,
   extractCityFromSettings,
+  extractSignatureDateFromSettings,
   formatAttendanceTargetHeading,
   getScheduleRoomInvigilators,
 } from '../utils/examDocuments';
@@ -70,7 +71,7 @@ export const AttendanceControlBar: React.FC<AttendanceControlBarProps> = ({
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-3.5 space-y-3">
+    <div className="print:hidden bg-white border border-slate-200 rounded-lg p-3.5 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-700">
           <span className="font-bold text-slate-900">
@@ -130,10 +131,10 @@ export const AttendanceControlBar: React.FC<AttendanceControlBarProps> = ({
                   type="button"
                   onClick={handleFillDailyInvigilator}
                   className="flex items-center gap-1 px-2.5 py-1 text-2xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 rounded-md transition-colors"
-                  title="Isi Nama Pengawas sesuai jadwal Pengawas Per Hari & Ruang"
+                  title="Isi Nama Pengawas sesuai jadwal Per Hari, Ruang & Sesi"
                 >
                   <UserCheck className="w-3 h-3" />
-                  <span>Isi Pengawas Hari &amp; Ruang</span>
+                  <span>Isi Pengawas (Hari, Ruang &amp; Sesi)</span>
                 </button>
               )}
               <button
@@ -262,7 +263,9 @@ export const ExamAttendanceSheet: React.FC<ExamAttendanceSheetProps> = ({
   config,
 }) => {
   const cityLabel = (config.cityLabel || extractCityFromSettings(settings)).trim();
-  const dateLine = (config.dateLine || '_____________________').trim();
+  const dateLine = (
+    config.dateLine || extractSignatureDateFromSettings(settings, '_____________________')
+  ).trim();
   const invigilatorDisplay = config.invigilatorName.trim() || '_________________________';
   const teacherDisplay = config.subjectTeacherName.trim() || '_________________________';
 
@@ -300,70 +303,70 @@ export const ExamAttendanceSheet: React.FC<ExamAttendanceSheetProps> = ({
         </p>
       </div>
 
-      {/* Metadata lines with underlined values */}
-      <div className="space-y-2 text-xs text-black pt-1 pb-1">
-        <div className="flex items-end">
+      {/* Metadata lines with underlined values (2 spasi) */}
+      <div className="space-y-3.5 text-xs text-black pt-1.5 pb-2">
+        <div className="flex items-end leading-relaxed">
           <span className="w-36 shrink-0">Hari, tanggal</span>
-          <span className="w-72 border-b border-black pb-0.5 font-normal">
+          <span className="w-72 border-b border-black pb-1 font-normal">
             : {config.dayDateText}
           </span>
         </div>
-        <div className="flex items-end">
+        <div className="flex items-end leading-relaxed">
           <span className="w-36 shrink-0">Mata Pelajaran</span>
-          <span className="w-72 border-b border-black pb-0.5 font-normal">
+          <span className="w-72 border-b border-black pb-1 font-normal">
             : {config.subjectText}
           </span>
         </div>
       </div>
 
-      {/* Attendance + Nilai Table matching uploaded image */}
+      {/* Attendance + Nilai Table (2 spasi) */}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse border border-black text-xs text-black">
           <thead>
             <tr className="bg-white font-bold text-center">
-              <th className="border border-black py-1.5 px-1.5 w-9">No</th>
-              <th className="border border-black py-1.5 px-2 w-28">No. Peserta</th>
-              <th className="border border-black py-1.5 px-2">Nama Peserta</th>
-              <th className="border border-black py-1.5 px-2 w-48">Tanda Tangan</th>
-              <th className="border border-black py-1.5 px-2 w-20">Nilai</th>
+              <th className="border border-black py-2 px-1.5 w-9">No</th>
+              <th className="border border-black py-2 px-2 w-28">No. Peserta</th>
+              <th className="border border-black py-2 px-2">Nama Peserta</th>
+              <th className="border border-black py-2 px-2 w-48">Tanda Tangan</th>
+              <th className="border border-black py-2 px-2 w-20">Nilai</th>
             </tr>
           </thead>
           <tbody>
             {displayRows.map((row) => {
               const isOdd = row.no % 2 !== 0;
               return (
-                <tr key={row.no} className="bg-white">
-                  <td className="border border-black py-1 px-1.5 text-center">
+                <tr key={row.no} className="bg-white leading-loose">
+                  <td className="border border-black py-2.5 px-1.5 text-center">
                     {row.no}
                   </td>
-                  <td className="border border-black py-1 px-2 text-center">
+                  <td className="border border-black py-2.5 px-2 text-center">
                     {row.participantNo}
                   </td>
-                  <td className="border border-black py-1 px-2 text-left uppercase">
+                  <td className="border border-black py-2.5 px-2 text-left uppercase">
                     {row.name}
                   </td>
                   <td
-                    className={`border border-black py-1 px-2 ${
+                    className={`border border-black py-2.5 px-2 ${
                       isOdd ? 'text-left' : 'text-center'
                     }`}
                   >
                     {row.no}
                   </td>
-                  <td className="border border-black py-1 px-2 text-center">
+                  <td className="border border-black py-2.5 px-2 text-center">
                     &nbsp;
                   </td>
                 </tr>
               );
             })}
             {/* Bottom Rata-rata row */}
-            <tr className="bg-white">
+            <tr className="bg-white leading-loose">
               <td
                 colSpan={4}
-                className="border border-black py-1.5 px-2 text-center font-bold"
+                className="border border-black py-2.5 px-2 text-center font-bold"
               >
                 Rata-rata
               </td>
-              <td className="border border-black py-1.5 px-2 text-center">
+              <td className="border border-black py-2.5 px-2 text-center">
                 &nbsp;
               </td>
             </tr>
@@ -371,15 +374,14 @@ export const ExamAttendanceSheet: React.FC<ExamAttendanceSheetProps> = ({
         </table>
       </div>
 
-      {/* Bottom Signatures: Left Pengawas, Right City + Date + Guru Mapel */}
-      <div className="pt-4 grid grid-cols-2 text-xs text-black">
+      {/* Bottom Signatures: Left Pengawas, Right City + Date + Guru Mapel (2 spasi) */}
+      <div className="pt-6 grid grid-cols-2 text-xs text-black leading-relaxed">
         <div className="pl-6">
           <p className="invisible">Spacer</p>
           <p>Pengawas</p>
           <div className="h-16" />
           <p>{invigilatorDisplay}</p>
         </div>
-
         <div className="pl-12">
           <p>
             {cityLabel}, {dateLine}

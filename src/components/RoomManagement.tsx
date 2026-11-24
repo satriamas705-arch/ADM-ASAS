@@ -9,8 +9,8 @@ import {
 import { DailyInvigilatorMatrix } from './DailyInvigilatorMatrix';
 import {
   buildExamDayGroups,
-  getRoomDayInvigilators,
-  makeRoomDayKey,
+  getRoomDaySessionInvigilator,
+  hasRoomSessionConfigured,
   syncStoredDocumentsWithDailyInvigilators,
 } from '../utils/examDocuments';
 import { defaultExamSettings } from '../utils/sampleData';
@@ -43,8 +43,14 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
 
   const dayGroups = useMemo(() => buildExamDayGroups(schedules), [schedules]);
 
+  const totalSessionsCount = useMemo(
+    () => dayGroups.reduce((acc, dg) => acc + dg.sessions.length, 0),
+    [dayGroups]
+  );
+
   const handleSaveDailyInvigilators = (
     dailyMap: Record<string, DailyRoomInvigilatorAssignment>,
+    sessionMap: Record<string, string>,
     updatedRooms: Room[],
     message: string
   ) => {
@@ -52,9 +58,10 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
       onUpdateSettings({
         ...settings,
         dailyInvigilators: dailyMap,
+        sessionInvigilators: sessionMap,
       });
     }
-    syncStoredDocumentsWithDailyInvigilators(dailyMap, updatedRooms, dayGroups);
+    syncStoredDocumentsWithDailyInvigilators(dailyMap, updatedRooms, dayGroups, sessionMap);
 
     if (onUpdateRoomsMeta) {
       onUpdateRoomsMeta(updatedRooms, message);
@@ -166,7 +173,9 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
         >
           <UserCheck className="w-3.5 h-3.5 text-slate-700" />
-          <span>Input Pengawas Per Hari &amp; Ruang ({dayGroups.length} Hari)</span>
+          <span>
+            Input Pengawas Per Hari, Ruang &amp; Sesi ({dayGroups.length} Hari · {totalSessionsCount} Sesi)
+          </span>
           {showBatchInvigilators ? (
             <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
           ) : (
@@ -220,30 +229,38 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                   <span className="font-medium text-slate-800">{room.columns} Kolom Meja</span>
                 </div>
                 {(() => {
-                  const day1 = dayGroups[0]
-                    ? getRoomDayInvigilators(room, dayGroups[0].dayKey, settings)
-                    : { invigilator1: room.invigilator1 };
-                  const configuredDays = dayGroups.filter(
-                    (dg) => settings.dailyInvigilators?.[makeRoomDayKey(room.id, dg.dayKey)] !== undefined
-                  ).length;
+                  const firstDay = dayGroups[0];
+                  const firstSch = firstDay?.sessions[0];
+                  const firstInv =
+                    firstDay && firstSch
+                      ? getRoomDaySessionInvigilator(room, firstDay.dayKey, firstSch.id, settings)
+                      : room.invigilator1;
+                  let configuredSessions = 0;
+                  for (const dg of dayGroups) {
+                    for (const sch of dg.sessions) {
+                      if (hasRoomSessionConfigured(room.id, dg.dayKey, sch.id, settings)) {
+                        configuredSessions += 1;
+                      }
+                    }
+                  }
                   return (
                     <>
                       <div className="flex justify-between">
                         <span className="text-slate-500">
-                          Pengawas {dayGroups.length > 1 ? '(H1)' : ''}:
+                          Pengawas {totalSessionsCount > 1 ? '(H1 S1)' : ''}:
                         </span>
                         <span
                           className="font-medium text-slate-800 truncate max-w-[170px]"
-                          title={day1.invigilator1}
+                          title={firstInv}
                         >
-                          {day1.invigilator1 || '-'}
+                          {firstInv || '-'}
                         </span>
                       </div>
-                      {configuredDays > 0 && (
+                      {configuredSessions > 0 && (
                         <div className="flex justify-between">
                           <span className="text-slate-500">Jadwal Pengawas:</span>
                           <span className="font-semibold text-emerald-700">
-                            {configuredDays}/{dayGroups.length} Hari Diatur
+                            {configuredSessions}/{totalSessionsCount} Sesi Diatur
                           </span>
                         </div>
                       )}
