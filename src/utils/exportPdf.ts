@@ -27,7 +27,9 @@ import {
   formatRoomNumberLabel,
   formatAttendanceTargetHeading,
   getStudentsForAttendanceTarget,
+  getRoomDaySessionEntries,
   getRoomDaySessionInvigilator,
+  getRoomDaySessionInvigilatorNip,
   getRoomDaySessionSummaryLabel,
   getSessionDisplayLabel,
   getScheduleRoomInvigilators,
@@ -140,11 +142,13 @@ function renderPdfStampAndSignature(
     addImageSafe(doc, sigData, centerX - sigW / 2, imageTopY + 0.5, sigW, sigH);
   }
 
-  // Draw enlarged school stamp overlapping on top of Headmaster's signature (left-center)
+  // Place enlarged school stamp shifted to the left of Headmaster's signature so it does not cover it
   if (role === 'headmaster' && settings.schoolStamp) {
-    const stampX = centerX - stampSize * 0.72;
+    const stampX = sigData
+      ? Math.max(8, centerX - sigW / 2 - stampSize * 0.9)
+      : centerX - stampSize / 2;
     const stampY = imageTopY + 0.5 + sigH / 2 - stampSize / 2;
-    const stampOpacity = detectImageFormat(settings.schoolStamp) === 'PNG' ? 0.88 : 0.65;
+    const stampOpacity = detectImageFormat(settings.schoolStamp) === 'PNG' ? 0.80 : 0.65;
     try {
       doc.saveGraphicsState();
       doc.setGState(new GState({ opacity: stampOpacity }));
@@ -244,6 +248,7 @@ export interface AttendancePdfOptions {
   cityLabel?: string;
   dateLine?: string;
   invigilatorName?: string;
+  invigilatorNip?: string;
   subjectTeacherName?: string;
   useDailyInvigilators?: boolean;
   schedule?: ExamScheduleItem;
@@ -270,14 +275,18 @@ function renderAttendancePage(
   const dateLine = (
     options?.dateLine || extractSignatureDateFromSettings(settings, '_____________________')
   ).trim();
-  const resolvedDailyInv =
+  const resolvedDaily =
     !options?.invigilatorName?.trim() &&
     options?.useDailyInvigilators &&
     target.mode !== 'per-class'
-      ? getScheduleRoomInvigilators(target.room, options.schedule, settings).invigilator1
-      : '';
+      ? getScheduleRoomInvigilators(target.room, options.schedule, settings)
+      : null;
   const invigilatorDisplay =
-    options?.invigilatorName?.trim() || resolvedDailyInv.trim() || '_________________________';
+    options?.invigilatorName?.trim() ||
+    resolvedDaily?.invigilator1.trim() ||
+    '_________________________';
+  const invigilatorNipDisplay =
+    options?.invigilatorNip?.trim() || resolvedDaily?.invigilator1Nip.trim() || '';
   const teacherDisplay = options?.subjectTeacherName?.trim() || '_________________________';
 
   // Top Centered Title Block (matching uploaded Daftar Hadir screenshot)
@@ -404,6 +413,11 @@ function renderAttendancePage(
 
   doc.text('Pengawas', leftSigX, sigY + 6.5);
   doc.text(invigilatorDisplay, leftSigX, sigY + 27);
+  if (invigilatorNipDisplay) {
+    doc.setFontSize(8.2);
+    doc.text(`NIP. ${invigilatorNipDisplay}`, leftSigX, sigY + 31.2);
+    doc.setFontSize(9.2);
+  }
 
   doc.text(`${cityLabel}, ${dateLine}`, rightSigX, sigY);
   doc.text('Guru Mapel', rightSigX, sigY + 6.5);
@@ -776,7 +790,8 @@ export function exportBundledAttendance2PdfForTargets(
 
 /**
  * Export Door Poster PDF (Daftar Tempel Pintu Ruang)
- * Designed with large fonts and clear seat indicators for classroom doors
+ * Designed with clear seat indicators for classroom doors, scaled dynamically
+ * to always fit cleanly on 1 single page of the selected paper size.
  */
 export function exportDoorPosterPdf(
   room: Room,
@@ -786,47 +801,74 @@ export function exportDoorPosterPdf(
   const doc = createPdfDoc('portrait', settings);
 
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const roomStudents = students
     .filter((s) => s.roomId === room.id)
     .sort((a, b) => (a.seatNumber || 0) - (b.seatNumber || 0));
 
-  // Big Header banner
+  const capacity = Math.max(1, room.capacity);
+  const marginX = 12;
+  const contentWidth = pageWidth - marginX * 2;
+  const isCompactMode = pageHeight < 290 || capacity > 28;
+
+  // Big Header banner (scaled for 1-page guarantee)
+  const bannerH = isCompactMode ? 28 : 33;
   doc.setFillColor(30, 41, 59); // slate-900
-  doc.rect(0, 0, pageWidth, 42, 'F');
+  doc.rect(0, 0, pageWidth, bannerH, 'F');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
+  doc.setFontSize(isCompactMode ? 9.5 : 10.5);
   doc.setTextColor(203, 213, 225); // slate-300
-  doc.text(settings.schoolName.toUpperCase(), pageWidth / 2, 12, { align: 'center' });
+  doc.text(settings.schoolName.toUpperCase(), pageWidth / 2, isCompactMode ? 7.5 : 9.5, {
+    align: 'center',
+  });
 
-  doc.setFontSize(16);
+  doc.setFontSize(isCompactMode ? 14 : 15.5);
   doc.setTextColor(255, 255, 255);
-  doc.text(`DAFTAR PESERTA UJIAN - ${room.name.toUpperCase()}`, pageWidth / 2, 23, { align: 'center' });
+  doc.text(
+    `DAFTAR PESERTA UJIAN - ${room.name.toUpperCase()}`,
+    pageWidth / 2,
+    isCompactMode ? 16 : 18.5,
+    { align: 'center' }
+  );
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(isCompactMode ? 9 : 9.5);
   doc.setTextColor(226, 232, 240);
-  doc.text(`${settings.examTitle} (${settings.academicYear}) | ${room.building}`, pageWidth / 2, 33, { align: 'center' });
+  doc.text(
+    `${settings.examTitle} (${settings.academicYear}) | ${room.building}`,
+    pageWidth / 2,
+    isCompactMode ? 23 : 26.5,
+    { align: 'center' }
+  );
 
-  // Quick stats ribbon
+  // Quick stats ribbon (without Sesi Ujian)
+  const ribbonY = bannerH + 3;
+  const ribbonH = isCompactMode ? 10 : 11.5;
   doc.setFillColor(241, 245, 249);
-  doc.rect(14, 48, pageWidth - 28, 14, 'F');
+  doc.rect(marginX, ribbonY, contentWidth, ribbonH, 'F');
   doc.setDrawColor(...BOX_BORDER_DARK);
   doc.setLineWidth(0.4);
-  doc.rect(14, 48, pageWidth - 28, 14, 'S');
+  doc.rect(marginX, ribbonY, contentWidth, ribbonH, 'S');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(isCompactMode ? 8.2 : 8.8);
   doc.setTextColor(30, 41, 59);
-  doc.text(`Aturan Kapasitas: ${room.capacity} Meja (${room.columns} Kolom)  |  Terisi: ${roomStudents.length} Siswa  |  Kosong: ${Math.max(0, room.capacity - roomStudents.length)} Meja`, 20, 56);
+  const ribbonTextY = ribbonY + ribbonH / 2 + 1.2;
+  doc.text(
+    `Kapasitas: ${room.capacity} Meja (${room.columns} Kolom)  |  Terisi: ${roomStudents.length} Siswa  |  Kosong: ${Math.max(0, room.capacity - roomStudents.length)} Meja`,
+    marginX + 4,
+    ribbonTextY
+  );
 
   const nisList = roomStudents.map((s) => s.nis).sort();
   const nisRange = nisList.length > 0 ? `${nisList[0]} s/d ${nisList[nisList.length - 1]}` : '-';
-  doc.text(`Rentang NIS: ${nisRange}  |  Sesi: ${settings.examSession}`, pageWidth - 20, 56, { align: 'right' });
+  doc.text(`Rentang NIS: ${nisRange}`, pageWidth - marginX - 4, ribbonTextY, {
+    align: 'right',
+  });
 
   // Table of students conforming to chair capacity rules (Meja 01 s/d Kapasitas)
-  const capacity = Math.max(1, room.capacity);
-  const tableData = [];
+  const tableData: string[][] = [];
   for (let seat = 1; seat <= capacity; seat++) {
     const st = roomStudents.find((s) => s.seatNumber === seat);
     if (st) {
@@ -850,8 +892,46 @@ export function exportDoorPosterPdf(
     }
   }
 
+  // Dynamic sizing to ensure all rows fit cleanly on 1 single page of the selected paper
+  const tableStartY = ribbonY + ribbonH + 3;
+  const footerReserveMm = 11.5;
+  const availableTableH = Math.max(80, pageHeight - tableStartY - footerReserveMm);
+  const estimatedHeadH = 8;
+  const idealRowH = ((availableTableH - estimatedHeadH) * 0.95) / capacity;
+
+  let bodyFontSize = 9;
+  let cellPadV = 2.0;
+
+  if (idealRowH >= 8.4) {
+    bodyFontSize = 9.5;
+    cellPadV = Math.min(2.7, Math.max(1.8, (idealRowH - bodyFontSize * 0.41) / 2));
+  } else if (idealRowH >= 6.8) {
+    bodyFontSize = 8.5;
+    cellPadV = Math.max(1.1, (idealRowH - bodyFontSize * 0.41) / 2);
+  } else if (idealRowH >= 5.5) {
+    bodyFontSize = 7.8;
+    cellPadV = Math.max(0.75, (idealRowH - bodyFontSize * 0.41) / 2);
+  } else if (idealRowH >= 4.4) {
+    bodyFontSize = 7.0;
+    cellPadV = Math.max(0.5, (idealRowH - bodyFontSize * 0.41) / 2);
+  } else {
+    bodyFontSize = Math.max(5.5, Number((idealRowH * 1.45).toFixed(1)));
+    cellPadV = Math.max(0.3, (idealRowH - bodyFontSize * 0.41) / 2);
+  }
+
+  const headFontSize = Math.min(9.5, bodyFontSize + 0.7);
+  const headPadV = Math.min(2.4, Math.max(1.0, cellPadV + 0.25));
+
+  const colNoMeja = 19;
+  const colNoPeserta = 26;
+  const colNis = 20;
+  const colKelas = 23;
+  const colJk = 22;
+  const colNamaWidth = contentWidth - (colNoMeja + colNoPeserta + colNis + colKelas + colJk);
+
   autoTable(doc, {
-    startY: 68,
+    startY: tableStartY,
+    margin: { top: tableStartY, left: marginX, right: marginX, bottom: 7 },
     head: [['No Meja', 'No Peserta', 'NIS', 'Nama Siswa', 'Kelas', 'JK']],
     body: tableData,
     theme: 'grid',
@@ -860,28 +940,69 @@ export function exportDoorPosterPdf(
       textColor: [255, 255, 255],
       lineColor: LINE_DARK,
       lineWidth: HEAD_LINE_WIDTH,
-      fontSize: 9.5,
+      fontSize: headFontSize,
+      cellPadding: { top: headPadV, bottom: headPadV, left: 1.5, right: 1.5 },
       halign: 'center',
+      valign: 'middle',
     },
     styles: {
-      fontSize: 8.5,
-      cellPadding: 2.2,
+      fontSize: bodyFontSize,
+      cellPadding: { top: cellPadV, bottom: cellPadV, left: 1.5, right: 1.5 },
       textColor: [15, 23, 42],
       lineColor: LINE_DARK,
       lineWidth: GRID_LINE_WIDTH,
+      valign: 'middle',
+      overflow: 'linebreak',
     },
     columnStyles: {
-      0: { halign: 'center', fontStyle: 'bold', cellWidth: 20 },
-      1: { halign: 'center', fontStyle: 'bold', cellWidth: 28 },
-      2: { halign: 'center', cellWidth: 22 },
-      3: { halign: 'left', cellWidth: 'auto' },
-      4: { halign: 'center', cellWidth: 25 },
-      5: { halign: 'center', cellWidth: 22 },
+      0: { halign: 'center', fontStyle: 'bold', cellWidth: colNoMeja },
+      1: { halign: 'center', fontStyle: 'bold', cellWidth: colNoPeserta },
+      2: { halign: 'center', cellWidth: colNis },
+      3: { halign: 'left', cellWidth: colNamaWidth },
+      4: { halign: 'center', cellWidth: colKelas },
+      5: { halign: 'center', cellWidth: colJk },
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252],
     },
+    didParseCell: (hookData) => {
+      // Shrink extra-long student names so every row stays 1 line tall and fits in 1 page
+      if (hookData.section === 'body' && hookData.column.index === 3) {
+        const rawText = Array.isArray(hookData.cell.text)
+          ? hookData.cell.text.join(' ')
+          : String(hookData.cell.text || '');
+        if (rawText) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(bodyFontSize);
+          const maxTextW = colNamaWidth - 3.5;
+          const textW = doc.getTextWidth(rawText);
+          if (textW > maxTextW && textW > 0) {
+            const shrunkSize = Math.max(
+              5.2,
+              Number(((bodyFontSize * maxTextW) / textW).toFixed(1))
+            );
+            hookData.cell.styles.fontSize = shrunkSize;
+          }
+        }
+      }
+    },
   });
+
+  // Compact footer on the single page
+  const cityLabel = extractCityFromSettings(settings);
+  const dateLabel = extractSignatureDateFromSettings(settings);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Harap ditempel di daun pintu masuk ruang ujian.', marginX, pageHeight - 5.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(51, 65, 85);
+  doc.text(
+    `${cityLabel}, ${dateLabel}  |  Panitia ${settings.schoolName}`,
+    pageWidth - marginX,
+    pageHeight - 5.5,
+    { align: 'right' }
+  );
 
   doc.save(`Tempelan_Pintu_${room.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`);
 }
@@ -1657,8 +1778,8 @@ export function exportSchedulePdf(
   }
 
   // Official Signatures: Kepala Sekolah & Ketua Panitia
-  const sigColLeft = 45;
-  const sigColRight = pageWidth - 45;
+  const sigColLeft = 52;
+  const sigColRight = pageWidth - 48;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
@@ -2121,7 +2242,17 @@ function renderDailyJournalPage(
         });
       }
       row.push(sch.subject);
-      row.push(blankMode ? '' : entry?.invigilatorName || '');
+      const journalInvName = entry?.invigilatorName || '';
+      const journalInvNip = journalInvName
+        ? getRoomDaySessionInvigilatorNip(room, dg.dayKey, sch.id, settings)
+        : '';
+      row.push(
+        blankMode
+          ? ''
+          : journalInvNip
+            ? `${journalInvName}\nNIP. ${journalInvNip}`
+            : journalInvName
+      );
       row.push(String(roomStudents.length));
       row.push(blankMode ? '' : entry?.absentCount || '');
       row.push(blankMode ? '' : entry?.absentNumbers || '');
@@ -2302,6 +2433,13 @@ function renderHandoverBeritaAcaraPage(
 
   const dayInvSummary = getRoomDaySessionSummaryLabel(room, dayGroup, settings);
   const invigilatorName = record.invigilator1 || dayInvSummary || '.....................................';
+  const invigilatorNipLabel = Array.from(
+    new Set(
+      getRoomDaySessionEntries(room, dayGroup, settings)
+        .map((e) => e.invigilatorNip)
+        .filter(Boolean)
+    )
+  ).join(' / ');
   const resolveSessInv = (scheduleId: string) =>
     record.sessionInvigilators?.[scheduleId] !== undefined
       ? record.sessionInvigilators[scheduleId]
@@ -2435,6 +2573,11 @@ function renderHandoverBeritaAcaraPage(
       curY + 17,
       { align: 'center' }
     );
+    if (invigilatorNipLabel) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.8);
+      doc.text(`NIP. ${invigilatorNipLabel}`, sRight, curY + 20.5, { align: 'center' });
+    }
 
     curY += 23;
   }
@@ -2564,6 +2707,11 @@ function renderHandoverBeritaAcaraPage(
       curY + 17,
       { align: 'center' }
     );
+    if (invigilatorNipLabel) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.8);
+      doc.text(`NIP. ${invigilatorNipLabel}`, sLeft, curY + 20.5, { align: 'center' });
+    }
 
     doc.setFont('helvetica', 'normal');
     doc.text('Yang Menerima,', sRight, curY, { align: 'center' });
@@ -2936,9 +3084,11 @@ export function exportInvigilatorSchedulePdf(
     room.code,
     room.name,
     room.building,
-    ...sessionSlots.map(
-      ({ dg, sch }) => getRoomDaySessionInvigilator(room, dg.dayKey, sch.id, settings) || '-'
-    ),
+    ...sessionSlots.map(({ dg, sch }) => {
+      const invName = getRoomDaySessionInvigilator(room, dg.dayKey, sch.id, settings) || '-';
+      const invNip = getRoomDaySessionInvigilatorNip(room, dg.dayKey, sch.id, settings);
+      return invNip && invName !== '-' ? `${invName}\nNIP. ${invNip}` : invName;
+    }),
   ]);
 
   const printableW = pageWidth - 28;
@@ -3083,7 +3233,7 @@ export function exportInvigilatorAttendancePdf(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body: any[] = invigilatorRows.map((item, idx) => [
       idx + 1,
-      item.name,
+      item.nip ? `${item.name}\nNIP. ${item.nip}` : item.name,
       item.roomLabels.join(', '),
       ...dayGroups.map((dg) => {
         const assignedCodes = item.dayRoomMap[dg.dayKey];
@@ -3261,11 +3411,13 @@ export function exportInvigilatorAttendancePdf(
         rowCounter += 1;
         const no = rowCounter;
         const isOdd = no % 2 !== 0;
+        const defaultName = room.invigilator1 || '-';
+        const defaultNip = room.invigilator1Nip?.trim();
         bodyRows.push([
           String(no),
           room.code,
           room.name,
-          room.invigilator1 || '-',
+          defaultNip && defaultName !== '-' ? `${defaultName}\nNIP. ${defaultNip}` : defaultName,
           '',
           {
             content: `${no}.`,
@@ -3282,6 +3434,7 @@ export function exportInvigilatorAttendancePdf(
         const isOdd = no % 2 !== 0;
         const invName =
           getRoomDaySessionInvigilator(room, dg.dayKey, sch.id, settings) || '-';
+        const invNip = getRoomDaySessionInvigilatorNip(room, dg.dayKey, sch.id, settings);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const row: any[] = [String(no)];
         if (sIdx === 0) {
@@ -3299,7 +3452,7 @@ export function exportInvigilatorAttendancePdf(
         if (hasMultipleSessions) {
           row.push(`${getSessionDisplayLabel(sch, sIdx)}\n${sch.subject}`);
         }
-        row.push(invName);
+        row.push(invNip && invName !== '-' ? `${invName}\nNIP. ${invNip}` : invName);
         row.push('');
         row.push({
           content: `${no}.`,

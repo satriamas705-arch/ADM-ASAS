@@ -16,6 +16,7 @@ export interface AttendanceSheetConfig {
   cityLabel: string;
   dateLine: string;
   invigilatorName: string;
+  invigilatorNip?: string;
   subjectTeacherName: string;
 }
 
@@ -47,26 +48,32 @@ export const AttendanceControlBar: React.FC<AttendanceControlBarProps> = ({
   const handleSelectSchedule = (scheduleId: string) => {
     const found = schedules.find((s) => s.id === scheduleId);
     if (found) {
-      const autoInv =
-        target.mode !== 'per-class' && config.invigilatorName.trim() !== ''
-          ? getScheduleRoomInvigilators(target.room, found, settings).invigilator1
-          : config.invigilatorName;
+      const resolvedInv =
+        target.mode !== 'per-class'
+          ? getScheduleRoomInvigilators(target.room, found, settings)
+          : null;
+      const shouldUpdateInv =
+        target.mode !== 'per-class' && config.invigilatorName.trim() !== '' && resolvedInv !== null;
       onChangeConfig({
         ...config,
         scheduleId: found.id,
         dayDateText: `${found.day}, ${found.date}`,
         subjectText: found.subject,
-        invigilatorName: autoInv,
+        invigilatorName: shouldUpdateInv ? resolvedInv.invigilator1 : config.invigilatorName,
+        invigilatorNip: shouldUpdateInv
+          ? resolvedInv.invigilator1Nip
+          : config.invigilatorNip || '',
       });
     }
   };
 
   const handleFillDailyInvigilator = () => {
     if (target.mode === 'per-class') return;
-    const inv = getScheduleRoomInvigilators(target.room, activeSchedule, settings).invigilator1;
+    const inv = getScheduleRoomInvigilators(target.room, activeSchedule, settings);
     onChangeConfig({
       ...config,
-      invigilatorName: inv,
+      invigilatorName: inv.invigilator1,
+      invigilatorNip: inv.invigilator1Nip,
     });
   };
 
@@ -143,6 +150,7 @@ export const AttendanceControlBar: React.FC<AttendanceControlBarProps> = ({
                   onChangeConfig({
                     ...config,
                     invigilatorName: '',
+                    invigilatorNip: '',
                     subjectTeacherName: '',
                   })
                 }
@@ -230,6 +238,19 @@ export const AttendanceControlBar: React.FC<AttendanceControlBarProps> = ({
 
             <div>
               <label className="block text-2xs font-semibold text-slate-600 mb-1">
+                NIP Pengawas (Kosong = Disembunyikan)
+              </label>
+              <input
+                type="text"
+                value={config.invigilatorNip || ''}
+                onChange={(e) => onChangeConfig({ ...config, invigilatorNip: e.target.value })}
+                placeholder="Contoh: 19780412 200501 2 008"
+                className="w-full px-2.5 py-1.5 font-mono border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-2xs font-semibold text-slate-600 mb-1">
                 Nama Guru Mapel (Kosong = Garis TTD)
               </label>
               <input
@@ -267,6 +288,7 @@ export const ExamAttendanceSheet: React.FC<ExamAttendanceSheetProps> = ({
     config.dateLine || extractSignatureDateFromSettings(settings, '_____________________')
   ).trim();
   const invigilatorDisplay = config.invigilatorName.trim() || '_________________________';
+  const invigilatorNipDisplay = (config.invigilatorNip || '').trim();
   const teacherDisplay = config.subjectTeacherName.trim() || '_________________________';
 
   const fallbackCount =
@@ -381,6 +403,9 @@ export const ExamAttendanceSheet: React.FC<ExamAttendanceSheetProps> = ({
           <p>Pengawas</p>
           <div className="h-16" />
           <p>{invigilatorDisplay}</p>
+          {invigilatorNipDisplay && (
+            <p className="text-2xs font-mono">NIP. {invigilatorNipDisplay}</p>
+          )}
         </div>
         <div className="pl-12">
           <p>

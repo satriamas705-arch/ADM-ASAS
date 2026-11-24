@@ -7,6 +7,7 @@ import {
   extractCityFromSettings,
   extractSignatureDateFromSettings,
   getRoomDaySessionInvigilator,
+  getRoomDaySessionInvigilatorNip,
   getSessionDisplayLabel,
 } from '../utils/examDocuments';
 import { OfficialSignatureGraphic } from './OfficialSignatureGraphic';
@@ -411,12 +412,23 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                     dg.sessions.map((sch) => {
                       const invName =
                         getRoomDaySessionInvigilator(room, dg.dayKey, sch.id, settings) || '-';
+                      const invNip = getRoomDaySessionInvigilatorNip(
+                        room,
+                        dg.dayKey,
+                        sch.id,
+                        settings
+                      );
                       return (
                         <td
                           key={`${dg.dayKey}-${sch.id}`}
                           className="border border-black px-1.5 py-2 text-left"
                         >
-                          {invName}
+                          <span className="block">{invName}</span>
+                          {invNip && invName !== '-' && (
+                            <span className="block text-[9px] font-mono text-slate-600 mt-0.5">
+                              NIP. {invNip}
+                            </span>
+                          )}
                         </td>
                       );
                     })
@@ -517,7 +529,14 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                   <td className="border border-black px-1.5 py-2 text-center font-mono tabular-nums">
                     {idx + 1}
                   </td>
-                  <td className="border border-black px-2.5 py-2 font-bold">{item.name}</td>
+                  <td className="border border-black px-2.5 py-2">
+                    <span className="font-bold block">{item.name}</span>
+                    {item.nip && (
+                      <span className="text-[10px] font-mono text-slate-600 block">
+                        NIP. {item.nip}
+                      </span>
+                    )}
+                  </td>
                   <td className="border border-black px-2 py-2 text-center font-mono">
                     {item.roomLabels.join(', ')}
                   </td>
@@ -658,8 +677,13 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                     {room.code}
                   </td>
                   <td className="border border-black px-2.5 py-2.5">{room.name}</td>
-                  <td className="border border-black px-2.5 py-2.5 font-bold">
-                    {room.invigilator1 || '-'}
+                  <td className="border border-black px-2.5 py-2.5">
+                    <span className="font-bold block">{room.invigilator1 || '-'}</span>
+                    {room.invigilator1Nip && (
+                      <span className="text-[10px] font-mono text-slate-600 block">
+                        NIP. {room.invigilator1Nip}
+                      </span>
+                    )}
                   </td>
                   <td className="border border-black px-2 py-2.5 text-center font-mono" />
                   <td
@@ -680,6 +704,12 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
               const isOdd = no % 2 !== 0;
               const invName =
                 getRoomDaySessionInvigilator(room, activeDay.dayKey, sch.id, settings) || '-';
+              const invNip = getRoomDaySessionInvigilatorNip(
+                room,
+                activeDay.dayKey,
+                sch.id,
+                settings
+              );
               return (
                 <tr key={`${room.id}-${sch.id}`} className="bg-white">
                   <td className="border border-black px-2 py-2 text-center font-mono tabular-nums">
@@ -709,7 +739,14 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                       </span>
                     </td>
                   )}
-                  <td className="border border-black px-2.5 py-2 font-bold">{invName}</td>
+                  <td className="border border-black px-2.5 py-2">
+                    <span className="font-bold block">{invName}</span>
+                    {invNip && invName !== '-' && (
+                      <span className="text-[10px] font-mono text-slate-600 block">
+                        NIP. {invNip}
+                      </span>
+                    )}
+                  </td>
                   <td className="border border-black px-2 py-2 text-center font-mono" />
                   <td
                     className={`border border-black px-2.5 py-2 h-10 align-middle font-mono text-2xs ${

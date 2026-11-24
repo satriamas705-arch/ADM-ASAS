@@ -182,12 +182,13 @@ export function exportBackupSql(
   lines.push('  columns_count INTEGER NOT NULL,');
   lines.push('  building VARCHAR(255),');
   lines.push('  invigilator1 VARCHAR(255),');
+  lines.push('  invigilator1_nip VARCHAR(128),');
   lines.push('  invigilator2 VARCHAR(255)');
   lines.push(');');
   lines.push('DELETE FROM exam_rooms;');
   for (const r of rooms) {
     lines.push(
-      'INSERT INTO exam_rooms (id, name, code, capacity, columns_count, building, invigilator1, invigilator2) VALUES (' +
+      'INSERT INTO exam_rooms (id, name, code, capacity, columns_count, building, invigilator1, invigilator1_nip, invigilator2) VALUES (' +
         [
           sqlValue(r.id),
           sqlValue(r.name),
@@ -196,6 +197,7 @@ export function exportBackupSql(
           sqlValue(r.columns),
           sqlValue(r.building),
           sqlValue(r.invigilator1),
+          sqlValue(r.invigilator1Nip ?? null),
           sqlValue(r.invigilator2 ?? null),
         ].join(', ') +
         ');'
@@ -371,6 +373,10 @@ function normalizeRooms(raw: unknown[]): Room[] {
       columns: Math.max(1, Number(r.columns ?? r.columns_count) || 4),
       building: String(r.building ?? ''),
       invigilator1: String(r.invigilator1 ?? ''),
+      invigilator1Nip:
+        (r.invigilator1Nip ?? r.invigilator1_nip)
+          ? String(r.invigilator1Nip ?? r.invigilator1_nip)
+          : undefined,
       invigilator2: r.invigilator2 ? String(r.invigilator2) : undefined,
     }));
 }
@@ -743,6 +749,7 @@ const DEFAULT_TABLE_COLUMNS: Record<string, string[]> = {
     'columns_count',
     'building',
     'invigilator1',
+    'invigilator1_nip',
     'invigilator2',
   ],
   exam_students: [

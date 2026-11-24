@@ -24,7 +24,9 @@ export interface Room {
   columns: number;
   building: string;
   invigilator1: string;
+  invigilator1Nip?: string;
   invigilator2?: string;
+  invigilator2Nip?: string;
 }
 
 export interface ExamScheduleItem {
@@ -41,7 +43,9 @@ export type SortMethod = 'class-order' | 'nis-cross-class' | 'nis-asc' | 'nis-de
 
 export interface DailyRoomInvigilatorAssignment {
   invigilator1: string;
+  invigilator1Nip?: string;
   invigilator2?: string;
+  invigilator2Nip?: string;
 }
 
 export type PaperSize = 'a4' | 'f4' | 'legal' | 'letter';
@@ -90,6 +94,7 @@ export interface ExamSettings {
 
   // Daftar Pengawas Per Hari Per Ruang Per Sesi (key: `${roomId}::${dayKey}::${scheduleId}`)
   sessionInvigilators?: Record<string, string>;
+  sessionInvigilatorNips?: Record<string, string>;
 
   // Konfigurasi Pembagian Berdasarkan Urutan Kelas
   customClassOrder?: string[];

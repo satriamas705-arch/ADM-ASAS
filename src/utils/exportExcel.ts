@@ -16,6 +16,7 @@ import {
   extractCityFromSettings,
   extractSignatureDateFromSettings,
   getRoomDaySessionInvigilator,
+  getRoomDaySessionInvigilatorNip,
   getSessionDisplayLabel,
   makeRoomDayKey,
   makeRoomDaySessionKey,
@@ -53,6 +54,7 @@ export function exportAllocationToExcel(
       'Terisi',
       'Sisa Kursi',
       'Pengawas Ruang',
+      'NIP Pengawas',
       'Rentang NIS',
     ],
   ];
@@ -80,6 +82,7 @@ export function exportAllocationToExcel(
       filled,
       remaining,
       room.invigilator1,
+      room.invigilator1Nip || '-',
       nisRange,
     ]);
   });
@@ -95,14 +98,15 @@ export function exportAllocationToExcel(
     Math.max(0, totalCap - totalFilled),
     '',
     '',
+    '',
   ]);
   rekapData.push([]);
-  rekapData.push(['', 'Mengetahui,', '', '', '', '', '', `${extractCityFromSettings(settings)}, ${extractSignatureDateFromSettings(settings)}`]);
-  rekapData.push(['', 'Kepala Sekolah', '', '', '', '', '', 'Ketua Panitia Ujian']);
+  rekapData.push(['', 'Mengetahui,', '', '', '', '', '', '', `${extractCityFromSettings(settings)}, ${extractSignatureDateFromSettings(settings)}`]);
+  rekapData.push(['', 'Kepala Sekolah', '', '', '', '', '', '', 'Ketua Panitia Ujian']);
   rekapData.push([]);
   rekapData.push([]);
-  rekapData.push(['', settings.headmaster, '', '', '', '', '', settings.committeeHead]);
-  rekapData.push(['', `NIP. ${settings.headmasterNip || '-'}`, '', '', '', '', '', `NIP. ${settings.committeeNip || '-'}`]);
+  rekapData.push(['', settings.headmaster, '', '', '', '', '', '', settings.committeeHead]);
+  rekapData.push(['', `NIP. ${settings.headmasterNip || '-'}`, '', '', '', '', '', '', `NIP. ${settings.committeeNip || '-'}`]);
 
   const wsRekap = XLSX.utils.aoa_to_sheet(rekapData);
   // Column widths
@@ -115,6 +119,7 @@ export function exportAllocationToExcel(
     { wch: 10 },
     { wch: 12 },
     { wch: 28 },
+    { wch: 24 },
     { wch: 24 },
   ];
   XLSX.utils.book_append_sheet(wb, wsRekap, 'Rekapitulasi');
@@ -150,10 +155,12 @@ export function exportAllocationToExcel(
       room.code,
       room.name,
       room.building,
-      ...invSlots.map(
-        (slot) =>
-          getRoomDaySessionInvigilator(room, slot.dg.dayKey, slot.sch.id, settings) || '-'
-      ),
+      ...invSlots.map((slot) => {
+        const name =
+          getRoomDaySessionInvigilator(room, slot.dg.dayKey, slot.sch.id, settings) || '-';
+        const nip = getRoomDaySessionInvigilatorNip(room, slot.dg.dayKey, slot.sch.id, settings);
+        return nip ? `${name} (NIP. ${nip})` : name;
+      }),
     ]);
   });
 
@@ -296,7 +303,9 @@ export function exportAllocationToExcel(
       [settings.schoolName],
       [settings.examTitle],
       [`DAFTAR HADIR & PESERTA UJIAN - ${room.name.toUpperCase()}`],
-      [`Lokasi: ${room.building} | Pengawas Ruang: ${room.invigilator1}`],
+      [
+        `Lokasi: ${room.building} | Pengawas Ruang: ${room.invigilator1}${room.invigilator1Nip ? ` (NIP. ${room.invigilator1Nip})` : ''}`,
+      ],
       [`Tanggal: ${settings.examDate} | Sesi: ${settings.examSession}`],
       [],
       [
@@ -385,6 +394,12 @@ export function exportAllocationToExcel(
     roomHeader.push([
       '',
       `NIP. ${settings.committeeNip || '-'}`,
+      '',
+      '',
+      '',
+      '',
+      '',
+      `NIP. ${room.invigilator1Nip || '-'}`,
     ]);
 
     const wsRoom = XLSX.utils.aoa_to_sheet(roomHeader);
@@ -699,14 +714,17 @@ export function exportInvigilatorsMatrixExcel(
       `TEMPLATE & DAFTAR PENGAWAS RUANG PER HARI & SESI - ${settings.activityName || settings.examTitle}`,
     ],
     [
-      `Tahun Ajaran: ${settings.academicYear} | Edit nama pengawas di tiap kolom Hari & Sesi lalu klik Impor Excel`,
+      `Tahun Ajaran: ${settings.academicYear} | Edit nama & NIP pengawas di tiap kolom Hari & Sesi lalu klik Impor Excel`,
     ],
     [],
     [
       'Kode Ruang',
       'Nama Ruang',
       'Lokasi / Gedung',
-      ...invSlots.map((slot) => slot.header),
+      ...invSlots.flatMap((slot) => [
+        slot.header,
+        `NIP Pengawas Hari ${slot.dg.dayNumber} - Sesi ${slot.sIdx + 1}`,
+      ]),
     ],
   ];
 
@@ -715,10 +733,10 @@ export function exportInvigilatorsMatrixExcel(
       room.code,
       room.name,
       room.building,
-      ...invSlots.map(
-        (slot) =>
-          getRoomDaySessionInvigilator(room, slot.dg.dayKey, slot.sch.id, settings) || ''
-      ),
+      ...invSlots.flatMap((slot) => [
+        getRoomDaySessionInvigilator(room, slot.dg.dayKey, slot.sch.id, settings) || '',
+        getRoomDaySessionInvigilatorNip(room, slot.dg.dayKey, slot.sch.id, settings) || '',
+      ]),
     ]);
   });
 
@@ -727,7 +745,7 @@ export function exportInvigilatorsMatrixExcel(
     { wch: 12 },
     { wch: 16 },
     { wch: 24 },
-    ...invSlots.map(() => ({ wch: 32 })),
+    ...invSlots.flatMap(() => [{ wch: 30 }, { wch: 24 }]),
   ];
   XLSX.utils.book_append_sheet(wb, ws, 'Pengawas Per Sesi');
 
@@ -739,10 +757,10 @@ export function exportInvigilatorsMatrixExcel(
       '2. Jangan mengubah kolom Kode Ruang (R01, R02, dst) atau Nama Ruang agar sistem dapat mencocokkan ruangan dengan tepat.',
     ],
     [
-      '3. Isi nama lengkap beserta gelar pengawas pada setiap kolom Hari & Sesi (misal: Hari 1 - Sesi 1, Hari 1 - Sesi 2, dst).',
+      '3. Isi nama lengkap beserta gelar pengawas dan NIP Pengawas (opsional) pada setiap pasangan kolom Hari & Sesi.',
     ],
     [
-      '4. Kompatibilitas mundur: file dengan kolom per hari saja (Hari 1, Hari 2) atau 1 kolom ("Pengawas") tetap dapat diimpor dan otomatis mengisi seluruh sesi pada hari tersebut.',
+      '4. Kompatibilitas mundur: file dengan kolom per hari saja (Hari 1, Hari 2) atau tanpa kolom NIP tetap dapat diimpor seperti biasa.',
     ],
     [
       '5. Simpan file (.xlsx / .xls / .csv) lalu klik tombol "Impor Excel" pada panel Input Pengawas Ruang.',
@@ -761,6 +779,7 @@ export function exportInvigilatorsMatrixExcel(
 export interface InvigilatorImportResult {
   dailyMap: Record<string, DailyRoomInvigilatorAssignment>;
   sessionMap: Record<string, string>;
+  sessionNipMap: Record<string, string>;
   updatedRooms: Room[];
   matchedRooms: number;
   updatedCells: number;
@@ -866,9 +885,15 @@ export async function parseInvigilatorsFromExcel(
   if (codeColIdx !== -1) usedCols.add(codeColIdx);
   if (nameColIdx !== -1) usedCols.add(nameColIdx);
 
-  // Exclude obvious metadata columns like No, Lokasi/Gedung, Kapasitas
+  // Exclude obvious metadata & NIP columns from name matching
   const metaColIndices = new Set<number>();
+  const nipColIndices = new Set<number>();
   headerLower.forEach((h, idx) => {
+    if (h.includes('nip')) {
+      nipColIndices.add(idx);
+      metaColIndices.add(idx);
+      return;
+    }
     if (
       h === 'no' ||
       h === 'no.' ||
@@ -897,7 +922,7 @@ export async function parseInvigilatorsFromExcel(
     return false;
   };
 
-  // Pass 1: Match exact Day + Session columns
+  // Pass 1: Match exact Day + Session columns (names)
   slots.forEach((slot) => {
     const foundIdx = headerLower.findIndex((h, idx) => {
       if (usedCols.has(idx) || metaColIndices.has(idx)) return false;
@@ -976,8 +1001,53 @@ export async function parseInvigilatorsFromExcel(
     );
   }
 
+  // Match optional NIP columns (Day+Session NIP, Day-only NIP, or generic NIP Pengawas)
+  const slotNipColMap = new Map<string, number>();
+  const usedNipCols = new Set<number>();
+
+  slots.forEach((slot) => {
+    const foundIdx = headerLower.findIndex((h, idx) => {
+      if (!nipColIndices.has(idx) || usedNipCols.has(idx)) return false;
+      return matchesDayHeader(h, slot.dg) && matchesSessionHeader(h, slot.sIdx, slot.sch);
+    });
+    if (foundIdx !== -1) {
+      slotNipColMap.set(slot.slotId, foundIdx);
+      usedNipCols.add(foundIdx);
+    }
+  });
+
+  dayGroups.forEach((dg) => {
+    const anyNipMatched = dg.sessions.some((sch) =>
+      slotNipColMap.has(`${dg.dayKey}::${sch.id}`)
+    );
+    if (anyNipMatched) return;
+
+    const dayOnlyNipIdx = headerLower.findIndex((h, idx) => {
+      if (!nipColIndices.has(idx) || usedNipCols.has(idx)) return false;
+      return matchesDayHeader(h, dg);
+    });
+    if (dayOnlyNipIdx !== -1) {
+      dg.sessions.forEach((sch) => {
+        slotNipColMap.set(`${dg.dayKey}::${sch.id}`, dayOnlyNipIdx);
+      });
+      usedNipCols.add(dayOnlyNipIdx);
+    }
+  });
+
+  if (slotNipColMap.size === 0 && nipColIndices.size > 0) {
+    const genericNipColIdx = Array.from(nipColIndices).find((idx) => !usedNipCols.has(idx));
+    if (genericNipColIdx !== undefined) {
+      slots.forEach((slot) => {
+        slotNipColMap.set(slot.slotId, genericNipColIdx);
+      });
+    }
+  }
+
   const nextSessionMap: Record<string, string> = {
     ...(settings.sessionInvigilators || {}),
+  };
+  const nextSessionNipMap: Record<string, string> = {
+    ...(settings.sessionInvigilatorNips || {}),
   };
   const nextDailyMap: Record<string, DailyRoomInvigilatorAssignment> = {
     ...(settings.dailyInvigilators || {}),
@@ -1021,17 +1091,33 @@ export async function parseInvigilatorsFromExcel(
     matchedRooms += 1;
     dayGroups.forEach((dg) => {
       let firstSessionVal: string | undefined;
+      let firstSessionNip: string | undefined;
       dg.sessions.forEach((sch, sIdx) => {
-        const colIdx = slotColMap.get(`${dg.dayKey}::${sch.id}`);
-        if (colIdx === undefined) return;
-        const val = String(row[colIdx] ?? '').trim();
-        nextSessionMap[makeRoomDaySessionKey(matchedRoom.id, dg.dayKey, sch.id)] = val;
-        if (sIdx === 0) firstSessionVal = val;
-        updatedCells += 1;
+        const slotId = `${dg.dayKey}::${sch.id}`;
+        const colIdx = slotColMap.get(slotId);
+        const nipColIdx = slotNipColMap.get(slotId);
+        const sessKey = makeRoomDaySessionKey(matchedRoom.id, dg.dayKey, sch.id);
+
+        if (colIdx !== undefined) {
+          const val = String(row[colIdx] ?? '').trim();
+          nextSessionMap[sessKey] = val;
+          if (sIdx === 0) firstSessionVal = val;
+          updatedCells += 1;
+        }
+        if (nipColIdx !== undefined) {
+          const nipVal = String(row[nipColIdx] ?? '').trim();
+          nextSessionNipMap[sessKey] = nipVal;
+          if (sIdx === 0) firstSessionNip = nipVal;
+        }
       });
       if (firstSessionVal !== undefined) {
+        const existingDaily = nextDailyMap[makeRoomDayKey(matchedRoom.id, dg.dayKey)];
         nextDailyMap[makeRoomDayKey(matchedRoom.id, dg.dayKey)] = {
           invigilator1: firstSessionVal,
+          invigilator1Nip:
+            firstSessionNip !== undefined
+              ? firstSessionNip || undefined
+              : existingDaily?.invigilator1Nip,
         };
       }
     });
@@ -1050,14 +1136,17 @@ export async function parseInvigilatorsFromExcel(
     const sessVal = firstSchId
       ? nextSessionMap[makeRoomDaySessionKey(rm.id, firstDayKey, firstSchId)]
       : undefined;
-    const day1Val =
-      sessVal !== undefined
-        ? sessVal
-        : nextDailyMap[makeRoomDayKey(rm.id, firstDayKey)]?.invigilator1;
-    if (day1Val === undefined) return rm;
+    const sessNipVal = firstSchId
+      ? nextSessionNipMap[makeRoomDaySessionKey(rm.id, firstDayKey, firstSchId)]
+      : undefined;
+    const day1Entry = nextDailyMap[makeRoomDayKey(rm.id, firstDayKey)];
+    const day1Val = sessVal !== undefined ? sessVal : day1Entry?.invigilator1;
+    const day1Nip = sessNipVal !== undefined ? sessNipVal : day1Entry?.invigilator1Nip;
+    if (day1Val === undefined && day1Nip === undefined) return rm;
     return {
       ...rm,
       invigilator1: day1Val || rm.invigilator1,
+      invigilator1Nip: day1Nip !== undefined ? day1Nip || undefined : rm.invigilator1Nip,
       invigilator2: undefined,
     };
   });
@@ -1065,6 +1154,7 @@ export async function parseInvigilatorsFromExcel(
   return {
     dailyMap: nextDailyMap,
     sessionMap: nextSessionMap,
+    sessionNipMap: nextSessionNipMap,
     updatedRooms,
     matchedRooms,
     updatedCells,

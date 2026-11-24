@@ -129,6 +129,7 @@ export const defaultRooms: Room[] = [
     columns: 4,
     building: 'Gedung A - Lantai 1',
     invigilator1: 'Dra. Sri Wahyuni, M.Pd.',
+    invigilator1Nip: '19780412 200501 2 008',
   },
   {
     id: 'room-2',
@@ -138,6 +139,7 @@ export const defaultRooms: Room[] = [
     columns: 4,
     building: 'Gedung A - Lantai 1',
     invigilator1: 'Ahmad Fauzi, S.Pd.',
+    invigilator1Nip: '19820917 200903 1 005',
   },
   {
     id: 'room-3',
@@ -147,6 +149,7 @@ export const defaultRooms: Room[] = [
     columns: 4,
     building: 'Gedung A - Lantai 2',
     invigilator1: 'Hendro Prasetyo, M.Sc.',
+    invigilator1Nip: '19801105 200604 1 012',
   },
   {
     id: 'room-4',
@@ -156,6 +159,7 @@ export const defaultRooms: Room[] = [
     columns: 4,
     building: 'Gedung B - Lantai 1',
     invigilator1: 'I Made Suryanatha, S.Sn.',
+    invigilator1Nip: '19850621 201001 1 009',
   },
 ];
 

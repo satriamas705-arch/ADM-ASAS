@@ -112,17 +112,20 @@ export function getRoomDayInvigilators(
   room: Room,
   dayKey: string,
   settings?: ExamSettings
-): { invigilator1: string; invigilator2: string } {
+): { invigilator1: string; invigilator1Nip: string; invigilator2: string } {
   const key = makeRoomDayKey(room.id, dayKey);
   const entry = settings?.dailyInvigilators?.[key];
   if (entry !== undefined) {
     return {
       invigilator1: entry.invigilator1 || '',
+      invigilator1Nip:
+        entry.invigilator1Nip !== undefined ? entry.invigilator1Nip || '' : room.invigilator1Nip || '',
       invigilator2: '',
     };
   }
   return {
     invigilator1: room.invigilator1 || '',
+    invigilator1Nip: room.invigilator1Nip || '',
     invigilator2: '',
   };
 }
@@ -140,6 +143,21 @@ export function getRoomDaySessionInvigilator(
     }
   }
   return getRoomDayInvigilators(room, dayKey, settings).invigilator1;
+}
+
+export function getRoomDaySessionInvigilatorNip(
+  room: Room,
+  dayKey: string,
+  scheduleId?: string,
+  settings?: ExamSettings
+): string {
+  if (scheduleId && settings?.sessionInvigilatorNips) {
+    const sessKey = makeRoomDaySessionKey(room.id, dayKey, scheduleId);
+    if (Object.prototype.hasOwnProperty.call(settings.sessionInvigilatorNips, sessKey)) {
+      return settings.sessionInvigilatorNips[sessKey] || '';
+    }
+  }
+  return getRoomDayInvigilators(room, dayKey, settings).invigilator1Nip;
 }
 
 export function hasRoomSessionConfigured(
@@ -162,11 +180,17 @@ export function getRoomDaySessionEntries(
   room: Room,
   dayGroup: ExamDayGroup,
   settings?: ExamSettings
-): Array<{ schedule: ExamScheduleItem; sessionLabel: string; invigilatorName: string }> {
+): Array<{
+  schedule: ExamScheduleItem;
+  sessionLabel: string;
+  invigilatorName: string;
+  invigilatorNip: string;
+}> {
   return dayGroup.sessions.map((sch, idx) => ({
     schedule: sch,
     sessionLabel: getSessionDisplayLabel(sch, idx),
     invigilatorName: getRoomDaySessionInvigilator(room, dayGroup.dayKey, sch.id, settings).trim(),
+    invigilatorNip: getRoomDaySessionInvigilatorNip(room, dayGroup.dayKey, sch.id, settings).trim(),
   }));
 }
 
@@ -189,20 +213,18 @@ export function getScheduleRoomInvigilators(
   room: Room,
   schedule?: ExamScheduleItem,
   settings?: ExamSettings
-): { invigilator1: string; invigilator2: string } {
+): { invigilator1: string; invigilator1Nip: string; invigilator2: string } {
   if (!schedule) {
     return {
       invigilator1: room.invigilator1 || '',
+      invigilator1Nip: room.invigilator1Nip || '',
       invigilator2: '',
     };
   }
+  const dayKey = getScheduleDayKey(schedule);
   return {
-    invigilator1: getRoomDaySessionInvigilator(
-      room,
-      getScheduleDayKey(schedule),
-      schedule.id,
-      settings
-    ),
+    invigilator1: getRoomDaySessionInvigilator(room, dayKey, schedule.id, settings),
+    invigilator1Nip: getRoomDaySessionInvigilatorNip(room, dayKey, schedule.id, settings),
     invigilator2: '',
   };
 }
@@ -730,6 +752,7 @@ export function syncStoredDocumentsWithSettings(
 
 export interface InvigilatorSummaryRow {
   name: string;
+  nip?: string;
   isPlaceholder: boolean;
   roomLabels: string[];
   dayRoomMap: Record<string, string[]>; // dayKey -> formatted room/session tags like ["R01·S1,S2"] or ["R01"]
@@ -746,6 +769,7 @@ export function buildUniqueInvigilatorsSummary(
 ): InvigilatorSummaryRow[] {
   interface TempSummary {
     name: string;
+    nip: string;
     isPlaceholder: boolean;
     roomLabels: string[];
     dayRoomSessions: Record<string, Record<string, string[]>>; // dayKey -> room.code -> ['S1', 'S2']
@@ -764,16 +788,26 @@ export function buildUniqueInvigilatorsSummary(
         ).trim();
         if (!assigned) return;
 
+        const assignedNip = getRoomDaySessionInvigilatorNip(
+          room,
+          dg.dayKey,
+          sch.id,
+          settings
+        ).trim();
+
         const normKey = assigned.toLowerCase();
         let existing = byNormalizedName.get(normKey);
         if (!existing) {
           existing = {
             name: assigned,
+            nip: assignedNip,
             isPlaceholder: /^pengawas\s+ruang/i.test(assigned),
             roomLabels: [],
             dayRoomSessions: {},
           };
           byNormalizedName.set(normKey, existing);
+        } else if (!existing.nip && assignedNip) {
+          existing.nip = assignedNip;
         }
 
         if (!existing.roomLabels.includes(room.code)) {
@@ -801,6 +835,7 @@ export function buildUniqueInvigilatorsSummary(
       }
       return {
         name: `Pengawas ${room.name}`,
+        nip: room.invigilator1Nip?.trim() || undefined,
         isPlaceholder: true,
         roomLabels: [room.code],
         dayRoomMap,
@@ -826,6 +861,7 @@ export function buildUniqueInvigilatorsSummary(
     }
     return {
       name: temp.name,
+      nip: temp.nip || undefined,
       isPlaceholder: temp.isPlaceholder,
       roomLabels: temp.roomLabels,
       dayRoomMap,

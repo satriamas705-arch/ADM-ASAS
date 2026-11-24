@@ -971,6 +971,11 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
                       <span className="text-slate-800 truncate block" title={rb.room.invigilator1}>
                         {rb.room.invigilator1}
                       </span>
+                      {rb.room.invigilator1Nip && (
+                        <span className="text-2xs font-mono text-slate-500 truncate block">
+                          NIP. {rb.room.invigilator1Nip}
+                        </span>
+                      )}
                     </div>
                   </div>
 

@@ -17,6 +17,7 @@ import { allocateStudentsToRooms } from './utils/allocator';
 import { applyCirculationDayToStudents, CirculationPattern } from './utils/circulation';
 import { syncStoredDocumentsWithSettings } from './utils/examDocuments';
 import { ExamBackupData, persistDocumentExtrasFromBackup } from './utils/backupRestore';
+import { ensureTransparentStampDataUrl } from './utils/imageTransparency';
 import { Check, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -83,6 +84,31 @@ export default function App() {
       // ignore
     }
   }, [settings]);
+
+  // Automatically convert any stored/restored opaque-background school stamp into a transparent PNG
+  useEffect(() => {
+    const currentStamp = settings.schoolStamp;
+    if (!currentStamp) return;
+
+    let cancelled = false;
+    ensureTransparentStampDataUrl(currentStamp)
+      .then((transparentPng) => {
+        if (!cancelled && transparentPng && transparentPng !== currentStamp) {
+          setSettings((prev) =>
+            prev.schoolStamp === currentStamp
+              ? { ...prev, schoolStamp: transparentPng }
+              : prev
+          );
+        }
+      })
+      .catch(() => {
+        // Ignore decode errors for custom image payloads
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.schoolStamp]);
 
   useEffect(() => {
     try {

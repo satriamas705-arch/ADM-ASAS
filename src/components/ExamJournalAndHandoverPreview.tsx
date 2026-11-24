@@ -26,7 +26,9 @@ import {
   extractCityFromSettings,
   extractSignatureDateFromSettings,
   formatRoomNumberLabel,
+  getRoomDaySessionEntries,
   getRoomDaySessionInvigilator,
+  getRoomDaySessionInvigilatorNip,
   getRoomDaySessionSummaryLabel,
 } from '../utils/examDocuments';
 
@@ -902,7 +904,30 @@ export const ExamJournalSheet: React.FC<ExamJournalSheetProps> = ({
                       {sch.subject}
                     </td>
                     <td className="border border-black px-2 py-2 align-middle">
-                      {blankMode ? '' : entry?.invigilatorName || ''}
+                      {blankMode ? (
+                        ''
+                      ) : (
+                        <>
+                          <span className="block">{entry?.invigilatorName || ''}</span>
+                          {entry?.invigilatorName &&
+                            getRoomDaySessionInvigilatorNip(
+                              room,
+                              dg.dayKey,
+                              sch.id,
+                              settings
+                            ) && (
+                              <span className="block text-[10px] font-mono text-slate-600">
+                                NIP.{' '}
+                                {getRoomDaySessionInvigilatorNip(
+                                  room,
+                                  dg.dayKey,
+                                  sch.id,
+                                  settings
+                                )}
+                              </span>
+                            )}
+                        </>
+                      )}
                     </td>
                     <td className="border border-black px-1.5 py-2 text-center align-middle">
                       {roomStudents.length}
@@ -978,6 +1003,14 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
 
   const dayInvSummary = getRoomDaySessionSummaryLabel(room, dayGroup, settings);
   const invigilatorLabel = record.invigilator1 || dayInvSummary;
+  const invigilatorNips = Array.from(
+    new Set(
+      getRoomDaySessionEntries(room, dayGroup, settings)
+        .map((e) => e.invigilatorNip)
+        .filter(Boolean)
+    )
+  );
+  const invigilatorNipLabel = invigilatorNips.join(' / ');
   const resolveSessInv = (scheduleId: string) =>
     record.sessionInvigilators?.[scheduleId] !== undefined
       ? record.sessionInvigilators[scheduleId]
@@ -1102,6 +1135,9 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
                 <p className="font-bold">Pengawas {room.name}</p>
                 <div className="h-11" />
                 <p className="font-bold underline">({invigilatorLabel || '....................................'})</p>
+                {invigilatorNipLabel && (
+                  <p className="text-[10px] font-mono text-slate-700">NIP. {invigilatorNipLabel}</p>
+                )}
               </div>
             </div>
           </div>
@@ -1191,6 +1227,9 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
                 <p className="font-bold">Pengawas {room.name}</p>
                 <div className="h-11" />
                 <p className="font-bold underline">({invigilatorLabel || '....................................'})</p>
+                {invigilatorNipLabel && (
+                  <p className="text-[10px] font-mono text-slate-700">NIP. {invigilatorNipLabel}</p>
+                )}
               </div>
               <div>
                 <p>Yang Menerima,</p>

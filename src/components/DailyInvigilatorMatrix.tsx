@@ -22,6 +22,7 @@ import {
 import {
   buildExamDayGroups,
   getRoomDaySessionInvigilator,
+  getRoomDaySessionInvigilatorNip,
   getSessionDisplayLabel,
   makeRoomDayKey,
   makeRoomDaySessionKey,
@@ -39,7 +40,8 @@ interface DailyInvigilatorMatrixProps {
     dailyMap: Record<string, DailyRoomInvigilatorAssignment>,
     sessionMap: Record<string, string>,
     updatedRooms: Room[],
-    message: string
+    message: string,
+    sessionNipMap?: Record<string, string>
   ) => void;
   showRoomConfigColumns?: boolean;
   title?: string;
@@ -92,12 +94,27 @@ export const DailyInvigilatorMatrix: React.FC<DailyInvigilatorMatrixProps> = ({
     return next;
   }, [rooms, dayGroups, settings]);
 
+  const buildInitialNipDrafts = useMemo(() => {
+    const next: Record<string, string> = {};
+    for (const room of rooms) {
+      for (const dg of dayGroups) {
+        for (const sch of dg.sessions) {
+          const sessKey = makeRoomDaySessionKey(room.id, dg.dayKey, sch.id);
+          next[sessKey] = getRoomDaySessionInvigilatorNip(room, dg.dayKey, sch.id, settings);
+        }
+      }
+    }
+    return next;
+  }, [rooms, dayGroups, settings]);
+
   const [drafts, setDrafts] = useState<Record<string, string>>(buildInitialDrafts);
+  const [nipDrafts, setNipDrafts] = useState<Record<string, string>>(buildInitialNipDrafts);
 
   useEffect(() => {
     setDrafts(buildInitialDrafts);
+    setNipDrafts(buildInitialNipDrafts);
     setHasUnsavedChanges(false);
-  }, [buildInitialDrafts]);
+  }, [buildInitialDrafts, buildInitialNipDrafts]);
 
   const handleFieldChange = (
     roomId: string,
@@ -107,6 +124,20 @@ export const DailyInvigilatorMatrix: React.FC<DailyInvigilatorMatrixProps> = ({
   ) => {
     const sessKey = makeRoomDaySessionKey(roomId, dayKey, scheduleId);
     setDrafts((prev) => ({
+      ...prev,
+      [sessKey]: value,
+    }));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleNipFieldChange = (
+    roomId: string,
+    dayKey: string,
+    scheduleId: string,
+    value: string
+  ) => {
+    const sessKey = makeRoomDaySessionKey(roomId, dayKey, scheduleId);
+    setNipDrafts((prev) => ({
       ...prev,
       [sessKey]: value,
     }));
@@ -126,6 +157,20 @@ export const DailyInvigilatorMatrix: React.FC<DailyInvigilatorMatrixProps> = ({
             : getRoomDaySessionInvigilator(room, activeDayGroup.dayKey, firstSch.id, settings);
         for (const sch of activeDayGroup.sessions) {
           next[makeRoomDaySessionKey(room.id, activeDayGroup.dayKey, sch.id)] = s1Val;
+        }
+      }
+      return next;
+    });
+    setNipDrafts((prev) => {
+      const next = { ...prev };
+      for (const room of rooms) {
+        const s1Key = makeRoomDaySessionKey(room.id, activeDayGroup.dayKey, firstSch.id);
+        const s1Nip =
+          next[s1Key] !== undefined
+            ? next[s1Key]
+            : getRoomDaySessionInvigilatorNip(room, activeDayGroup.dayKey, firstSch.id, settings);
+        for (const sch of activeDayGroup.sessions) {
+          next[makeRoomDaySessionKey(room.id, activeDayGroup.dayKey, sch.id)] = s1Nip;
         }
       }
       return next;
@@ -154,12 +199,40 @@ export const DailyInvigilatorMatrix: React.FC<DailyInvigilatorMatrixProps> = ({
       }
       return next;
     });
+    setNipDrafts((prev) => {
+      const next = { ...prev };
+      for (const room of rooms) {
+        const sourceNips = activeDayGroup.sessions.map((sch) => {
+          const key = makeRoomDaySessionKey(room.id, activeDayGroup.dayKey, sch.id);
+          return next[key] !== undefined
+            ? next[key]
+            : getRoomDaySessionInvigilatorNip(room, activeDayGroup.dayKey, sch.id, settings);
+        });
+
+        for (const dg of dayGroups) {
+          dg.sessions.forEach((targetSch, sIdx) => {
+            const val = sourceNips[sIdx] !== undefined ? sourceNips[sIdx] : sourceNips[0] || '';
+            next[makeRoomDaySessionKey(room.id, dg.dayKey, targetSch.id)] = val;
+          });
+        }
+      }
+      return next;
+    });
     setHasUnsavedChanges(true);
   };
 
   const handleClearActiveDay = () => {
     if (!activeDayGroup) return;
     setDrafts((prev) => {
+      const next = { ...prev };
+      for (const room of rooms) {
+        for (const sch of activeDayGroup.sessions) {
+          next[makeRoomDaySessionKey(room.id, activeDayGroup.dayKey, sch.id)] = '';
+        }
+      }
+      return next;
+    });
+    setNipDrafts((prev) => {
       const next = { ...prev };
       for (const room of rooms) {
         for (const sch of activeDayGroup.sessions) {
@@ -175,6 +248,9 @@ export const DailyInvigilatorMatrix: React.FC<DailyInvigilatorMatrixProps> = ({
     const cleanedSessionMap: Record<string, string> = {
       ...(settings.sessionInvigilators || {}),
     };
+    const cleanedSessionNipMap: Record<string, string> = {
+      ...(settings.sessionInvigilatorNips || {}),
+    };
     const cleanedDailyMap: Record<string, DailyRoomInvigilatorAssignment> = {
       ...(settings.dailyInvigilators || {}),
     };
@@ -182,15 +258,25 @@ export const DailyInvigilatorMatrix: React.FC<DailyInvigilatorMatrixProps> = ({
     for (const room of rooms) {
       for (const dg of dayGroups) {
         let firstVal = '';
+        let firstNip = '';
         dg.sessions.forEach((sch, sIdx) => {
           const sessKey = makeRoomDaySessionKey(room.id, dg.dayKey, sch.id);
           const raw = drafts[sessKey];
           const trimmed = (raw !== undefined ? raw : '').trim();
           cleanedSessionMap[sessKey] = trimmed;
-          if (sIdx === 0) firstVal = trimmed;
+
+          const rawNip = nipDrafts[sessKey];
+          const trimmedNip = (rawNip !== undefined ? rawNip : '').trim();
+          cleanedSessionNipMap[sessKey] = trimmedNip;
+
+          if (sIdx === 0) {
+            firstVal = trimmed;
+            firstNip = trimmedNip;
+          }
         });
         cleanedDailyMap[makeRoomDayKey(room.id, dg.dayKey)] = {
           invigilator1: firstVal,
+          invigilator1Nip: firstNip || undefined,
         };
       }
     }
@@ -199,11 +285,14 @@ export const DailyInvigilatorMatrix: React.FC<DailyInvigilatorMatrixProps> = ({
     const firstSchId = dayGroups[0]?.sessions[0]?.id;
     const updatedRooms = rooms.map((r) => {
       if (!firstDayKey || !firstSchId) return r;
-      const day1Sess1 = cleanedSessionMap[makeRoomDaySessionKey(r.id, firstDayKey, firstSchId)];
-      if (day1Sess1 === undefined) return r;
+      const firstSessKey = makeRoomDaySessionKey(r.id, firstDayKey, firstSchId);
+      const day1Sess1 = cleanedSessionMap[firstSessKey];
+      const day1Sess1Nip = cleanedSessionNipMap[firstSessKey];
+      if (day1Sess1 === undefined && day1Sess1Nip === undefined) return r;
       return {
         ...r,
         invigilator1: day1Sess1 || r.invigilator1,
+        invigilator1Nip: day1Sess1Nip !== undefined ? day1Sess1Nip || undefined : r.invigilator1Nip,
         invigilator2: undefined,
       };
     });
@@ -213,7 +302,8 @@ export const DailyInvigilatorMatrix: React.FC<DailyInvigilatorMatrixProps> = ({
       cleanedDailyMap,
       cleanedSessionMap,
       updatedRooms,
-      `Daftar pengawas untuk ${rooms.length} ruang × ${dayGroups.length} hari (${totalSessionsCount} sesi) berhasil disimpan!`
+      `Daftar pengawas untuk ${rooms.length} ruang × ${dayGroups.length} hari (${totalSessionsCount} sesi) berhasil disimpan!`,
+      cleanedSessionNipMap
     );
   };
 
@@ -245,6 +335,7 @@ export const DailyInvigilatorMatrix: React.FC<DailyInvigilatorMatrixProps> = ({
     try {
       const result = await parseInvigilatorsFromExcel(file, rooms, schedules, settings);
       setDrafts((prev) => ({ ...prev, ...result.sessionMap }));
+      setNipDrafts((prev) => ({ ...prev, ...result.sessionNipMap }));
       setHasUnsavedChanges(false);
 
       const warnSuffix =
@@ -253,7 +344,13 @@ export const DailyInvigilatorMatrix: React.FC<DailyInvigilatorMatrixProps> = ({
           : '';
       const msg = `Berhasil mengimpor ${result.updatedCells} slot pengawas sesi untuk ${result.matchedRooms} ruang!${warnSuffix}`;
 
-      onSave(result.dailyMap, result.sessionMap, result.updatedRooms, msg);
+      onSave(
+        result.dailyMap,
+        result.sessionMap,
+        result.updatedRooms,
+        msg,
+        result.sessionNipMap
+      );
       setImportStatus({ type: 'success', text: msg });
       setTimeout(() => setImportStatus(null), 6000);
     } catch (err: unknown) {
@@ -546,22 +643,39 @@ export const DailyInvigilatorMatrix: React.FC<DailyInvigilatorMatrixProps> = ({
                           sch.id
                         );
                         const val = drafts[sessKey] ?? '';
+                        const nipVal = nipDrafts[sessKey] ?? '';
                         return (
                           <td key={sch.id} className="py-2 px-2 border-l border-slate-100">
-                            <input
-                              type="text"
-                              value={val}
-                              onChange={(e) =>
-                                handleFieldChange(
-                                  room.id,
-                                  activeDayGroup.dayKey,
-                                  sch.id,
-                                  e.target.value
-                                )
-                              }
-                              placeholder={`Pengawas ${room.code} ${getSessionDisplayLabel(sch, sIdx)}...`}
-                              className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none bg-white"
-                            />
+                            <div className="space-y-1">
+                              <input
+                                type="text"
+                                value={val}
+                                onChange={(e) =>
+                                  handleFieldChange(
+                                    room.id,
+                                    activeDayGroup.dayKey,
+                                    sch.id,
+                                    e.target.value
+                                  )
+                                }
+                                placeholder={`Pengawas ${room.code} ${getSessionDisplayLabel(sch, sIdx)}...`}
+                                className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none bg-white"
+                              />
+                              <input
+                                type="text"
+                                value={nipVal}
+                                onChange={(e) =>
+                                  handleNipFieldChange(
+                                    room.id,
+                                    activeDayGroup.dayKey,
+                                    sch.id,
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="NIP Pengawas (opsional)"
+                                className="w-full px-2.5 py-1 text-2xs font-mono border border-slate-200 rounded focus:border-slate-900 focus:outline-none bg-slate-50/70 text-slate-700"
+                              />
+                            </div>
                           </td>
                         );
                       })}
@@ -649,20 +763,32 @@ export const DailyInvigilatorMatrix: React.FC<DailyInvigilatorMatrixProps> = ({
                     dg.sessions.map((sch) => {
                       const sessKey = makeRoomDaySessionKey(room.id, dg.dayKey, sch.id);
                       const val = drafts[sessKey] ?? '';
+                      const nipVal = nipDrafts[sessKey] ?? '';
                       return (
                         <td
                           key={`${dg.dayKey}-${sch.id}`}
                           className="py-2 px-2 border-r border-slate-100 last:border-r-0 align-middle"
                         >
-                          <input
-                            type="text"
-                            value={val}
-                            onChange={(e) =>
-                              handleFieldChange(room.id, dg.dayKey, sch.id, e.target.value)
-                            }
-                            placeholder="Nama & gelar..."
-                            className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded focus:border-slate-900 focus:outline-none bg-white"
-                          />
+                          <div className="space-y-1">
+                            <input
+                              type="text"
+                              value={val}
+                              onChange={(e) =>
+                                handleFieldChange(room.id, dg.dayKey, sch.id, e.target.value)
+                              }
+                              placeholder="Nama & gelar..."
+                              className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded focus:border-slate-900 focus:outline-none bg-white"
+                            />
+                            <input
+                              type="text"
+                              value={nipVal}
+                              onChange={(e) =>
+                                handleNipFieldChange(room.id, dg.dayKey, sch.id, e.target.value)
+                              }
+                              placeholder="NIP Pengawas..."
+                              className="w-full px-2 py-1 text-2xs font-mono border border-slate-200 rounded focus:border-slate-900 focus:outline-none bg-slate-50/70 text-slate-700"
+                            />
+                          </div>
                         </td>
                       );
                     })

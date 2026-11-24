@@ -10,6 +10,7 @@ import { DailyInvigilatorMatrix } from './DailyInvigilatorMatrix';
 import {
   buildExamDayGroups,
   getRoomDaySessionInvigilator,
+  getRoomDaySessionInvigilatorNip,
   hasRoomSessionConfigured,
   syncStoredDocumentsWithDailyInvigilators,
 } from '../utils/examDocuments';
@@ -52,13 +53,15 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
     dailyMap: Record<string, DailyRoomInvigilatorAssignment>,
     sessionMap: Record<string, string>,
     updatedRooms: Room[],
-    message: string
+    message: string,
+    sessionNipMap?: Record<string, string>
   ) => {
     if (onUpdateSettings) {
       onUpdateSettings({
         ...settings,
         dailyInvigilators: dailyMap,
         sessionInvigilators: sessionMap,
+        sessionInvigilatorNips: sessionNipMap ?? settings.sessionInvigilatorNips,
       });
     }
     syncStoredDocumentsWithDailyInvigilators(dailyMap, updatedRooms, dayGroups, sessionMap);
@@ -77,6 +80,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
   const [formColumns, setFormColumns] = useState(4);
   const [formBuilding, setFormBuilding] = useState('Gedung A - Lantai 1');
   const [formInvigilator1, setFormInvigilator1] = useState('');
+  const [formInvigilator1Nip, setFormInvigilator1Nip] = useState('');
 
   const totalCapacity = rooms.reduce((acc, r) => acc + r.capacity, 0);
 
@@ -90,6 +94,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
     setFormColumns(4);
     setFormBuilding('Gedung A - Lantai 1');
     setFormInvigilator1('');
+    setFormInvigilator1Nip('');
     setIsModalOpen(true);
   };
 
@@ -101,6 +106,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
     setFormColumns(room.columns);
     setFormBuilding(room.building);
     setFormInvigilator1(room.invigilator1);
+    setFormInvigilator1Nip(room.invigilator1Nip || '');
     setIsModalOpen(true);
   };
 
@@ -117,6 +123,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
         columns: Number(formColumns) || 4,
         building: formBuilding.trim(),
         invigilator1: formInvigilator1.trim() || 'Pengawas Ruang',
+        invigilator1Nip: formInvigilator1Nip.trim() || undefined,
         invigilator2: undefined,
       });
     } else {
@@ -127,6 +134,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
         columns: Number(formColumns) || 4,
         building: formBuilding.trim(),
         invigilator1: formInvigilator1.trim() || 'Pengawas Ruang',
+        invigilator1Nip: formInvigilator1Nip.trim() || undefined,
       });
     }
 
@@ -235,6 +243,10 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                     firstDay && firstSch
                       ? getRoomDaySessionInvigilator(room, firstDay.dayKey, firstSch.id, settings)
                       : room.invigilator1;
+                  const firstInvNip =
+                    firstDay && firstSch
+                      ? getRoomDaySessionInvigilatorNip(room, firstDay.dayKey, firstSch.id, settings)
+                      : room.invigilator1Nip || '';
                   let configuredSessions = 0;
                   for (const dg of dayGroups) {
                     for (const sch of dg.sessions) {
@@ -245,16 +257,23 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                   }
                   return (
                     <>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-slate-500 shrink-0">
                           Pengawas {totalSessionsCount > 1 ? '(H1 S1)' : ''}:
                         </span>
-                        <span
-                          className="font-medium text-slate-800 truncate max-w-[170px]"
-                          title={firstInv}
-                        >
-                          {firstInv || '-'}
-                        </span>
+                        <div className="text-right min-w-0">
+                          <span
+                            className="font-medium text-slate-800 truncate block max-w-[175px]"
+                            title={firstInv}
+                          >
+                            {firstInv || '-'}
+                          </span>
+                          {firstInvNip && (
+                            <span className="text-2xs font-mono text-slate-500 block truncate max-w-[175px]">
+                              NIP. {firstInvNip}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {configuredSessions > 0 && (
                         <div className="flex justify-between">
@@ -384,17 +403,32 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Pengawas Ruang
-                </label>
-                <input
-                  type="text"
-                  value={formInvigilator1}
-                  onChange={(e) => setFormInvigilator1(e.target.value)}
-                  placeholder="Nama & Gelar Pengawas Ruang"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Pengawas Ruang
+                  </label>
+                  <input
+                    type="text"
+                    value={formInvigilator1}
+                    onChange={(e) => setFormInvigilator1(e.target.value)}
+                    placeholder="Nama & Gelar Pengawas Ruang"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    NIP Pengawas
+                  </label>
+                  <input
+                    type="text"
+                    value={formInvigilator1Nip}
+                    onChange={(e) => setFormInvigilator1Nip(e.target.value)}
+                    placeholder="Contoh: 19780412 200501 2 008"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md font-mono focus:border-slate-900 focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">

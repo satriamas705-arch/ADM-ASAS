@@ -92,6 +92,7 @@ import {
   getRoomClassPairs,
   getStudentsForAttendanceTarget,
   getRoomDaySessionInvigilator,
+  getRoomDaySessionInvigilatorNip,
   getSessionDisplayLabel,
   syncStoredDocumentsWithDailyInvigilators,
   syncStoredDocumentsWithSettings,
@@ -122,6 +123,7 @@ import {
   InvigilatorSubMode,
 } from './DistributionAndInvigilatorPreview';
 import { OfficialSignatureGraphic } from './OfficialSignatureGraphic';
+import { processStampFileToTransparentPng } from '../utils/imageTransparency';
 
 interface RulesAndPreviewMenuProps {
   settings: ExamSettings;
@@ -219,6 +221,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
       cityLabel: extractCityFromSettings(settings),
       dateLine: extractSignatureDateFromSettings(settings, '_____________________'),
       invigilatorName: '',
+      invigilatorNip: '',
       subjectTeacherName: '',
     };
   });
@@ -232,6 +235,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
       cityLabel: extractCityFromSettings(settings),
       dateLine: extractSignatureDateFromSettings(settings, '_____________________'),
       invigilatorName: '',
+      invigilatorNip: '',
       subjectTeacherName: '',
     });
     showFeedback('Pengaturan Daftar Hadir dikembalikan ke standar.');
@@ -498,17 +502,21 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
     dailyMap: Record<string, DailyRoomInvigilatorAssignment>,
     sessionMap: Record<string, string>,
     updatedRooms: Room[],
-    message: string
+    message: string,
+    sessionNipMap?: Record<string, string>
   ) => {
+    const nextSessionNips = sessionNipMap ?? settings.sessionInvigilatorNips;
     const nextSettings: ExamSettings = {
       ...settings,
       dailyInvigilators: dailyMap,
       sessionInvigilators: sessionMap,
+      sessionInvigilatorNips: nextSessionNips,
     };
     setFormData((prev) => ({
       ...prev,
       dailyInvigilators: dailyMap,
       sessionInvigilators: sessionMap,
+      sessionInvigilatorNips: nextSessionNips,
     }));
 
     if (onUpdateSettingsOnly) {
@@ -810,7 +818,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
 
   type SignatureAssetField = 'headmasterSignature' | 'committeeSignature' | 'schoolStamp';
 
-  const handleSignatureAssetUpload = (
+  const handleSignatureAssetUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     field: SignatureAssetField,
     label: string
@@ -824,19 +832,33 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
       return;
     }
 
+    const applyAssetDataUrl = (result: string, extraNote = '') => {
+      const nextFormData: ExamSettings = { ...formData, [field]: result };
+      const nextSettings: ExamSettings = { ...settings, [field]: result };
+      setFormData(nextFormData);
+      if (onUpdateSettingsOnly) {
+        onUpdateSettingsOnly(nextSettings);
+      } else {
+        onUpdateSettings(nextSettings);
+      }
+      showFeedback(`${label} berhasil diunggah${extraNote} & disinkronkan ke seluruh dokumen!`);
+    };
+
+    if (field === 'schoolStamp') {
+      try {
+        const transparentPng = await processStampFileToTransparentPng(file);
+        applyAssetDataUrl(transparentPng, ' (background otomatis transparan)');
+        return;
+      } catch {
+        // Fall back to direct FileReader if image canvas processing fails
+      }
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const result = event.target?.result as string;
       if (result) {
-        const nextFormData: ExamSettings = { ...formData, [field]: result };
-        const nextSettings: ExamSettings = { ...settings, [field]: result };
-        setFormData(nextFormData);
-        if (onUpdateSettingsOnly) {
-          onUpdateSettingsOnly(nextSettings);
-        } else {
-          onUpdateSettings(nextSettings);
-        }
-        showFeedback(`${label} berhasil diunggah & disinkronkan ke seluruh dokumen!`);
+        applyAssetDataUrl(result);
       }
     };
     reader.readAsDataURL(file);
@@ -2348,9 +2370,38 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
         const pageCssSize = isLandscapeDoc
           ? `${activePaperSpec.heightMm}mm ${activePaperSpec.widthMm}mm`
           : `${activePaperSpec.widthMm}mm ${activePaperSpec.heightMm}mm`;
+        const printMarginCss = previewDocType === 'door' ? '8mm' : '10mm';
+
+        const doorSeatCount = Math.max(1, selectedRoom?.capacity || 24);
+        const doorPrintablePx = (activePaperSpec.heightMm - 16) * 3.7795;
+        const doorRowTargetPx = (doorPrintablePx - 255) / doorSeatCount;
+        const doorDensity: 'spacious' | 'normal' | 'compact' | 'dense' | 'ultra' =
+          doorRowTargetPx >= 32
+            ? 'spacious'
+            : doorRowTargetPx >= 26
+              ? 'normal'
+              : doorRowTargetPx >= 21.5
+                ? 'compact'
+                : doorRowTargetPx >= 17.5
+                  ? 'dense'
+                  : 'ultra';
+        const isCompactDoor = previewDocType === 'door' && doorDensity !== 'spacious';
+        const doorPaperMaxWidthClass =
+          activePaperSpec.id === 'a4'
+            ? 'max-w-[794px]'
+            : 'max-w-[816px]';
+        const doorPaperMinHeightClass =
+          activePaperSpec.id === 'letter'
+            ? 'min-h-[1056px]'
+            : activePaperSpec.id === 'a4'
+              ? 'min-h-[1123px]'
+              : activePaperSpec.id === 'f4'
+                ? 'min-h-[1247px]'
+                : 'min-h-[1344px]';
+
         return (
         <div className="space-y-4">
-          <style media="print">{`@page { size: ${pageCssSize}; margin: 10mm; }`}</style>
+          <style media="print">{`@page { size: ${pageCssSize}; margin: ${printMarginCss}; }`}</style>
           {/* Document Type Switcher Bar */}
           <div className="print:hidden bg-white border border-slate-200 rounded-lg p-3.5 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -2648,6 +2699,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                       cityLabel: attendanceConfig.cityLabel,
                       dateLine: attendanceConfig.dateLine,
                       invigilatorName: attendanceConfig.invigilatorName,
+                      invigilatorNip: attendanceConfig.invigilatorNip,
                       subjectTeacherName: attendanceConfig.subjectTeacherName,
                       useDailyInvigilators: attendanceConfig.invigilatorName.trim() !== '',
                       schedule: matchedSchedule,
@@ -2767,6 +2819,10 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                           invigilatorName:
                             attendanceGroupingMode === 'per-class' || !useDaily
                               ? attendanceConfig.invigilatorName
+                              : undefined,
+                          invigilatorNip:
+                            attendanceGroupingMode === 'per-class' || !useDaily
+                              ? attendanceConfig.invigilatorNip
                               : undefined,
                           subjectTeacherName: attendanceConfig.subjectTeacherName,
                           useDailyInvigilators: useDaily,
@@ -3047,10 +3103,12 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
           {/* REALISTIC PAPER SHEET VIEWPORT */}
           <div className="bg-slate-200/70 p-4 sm:p-8 rounded-xl overflow-x-auto flex justify-center print:bg-white print:p-0 print:rounded-none print:overflow-visible">
             <div
-              className={`bg-white shadow-xl border border-slate-300 w-full p-8 sm:p-12 text-slate-900 font-sans print:shadow-none print:border-none print:p-0 print:max-w-none print:min-h-0 ${
-                isLandscapeDoc
-                  ? 'max-w-[1050px] min-h-[740px]'
-                  : 'max-w-[850px] min-h-[1100px]'
+              className={`bg-white shadow-xl border border-slate-300 w-full text-slate-900 font-sans print:shadow-none print:border-none print:p-0 print:max-w-none print:min-h-0 ${
+                previewDocType === 'door'
+                  ? `p-6 sm:p-8 ${doorPaperMaxWidthClass} ${doorPaperMinHeightClass} print:break-inside-avoid`
+                  : isLandscapeDoc
+                    ? 'p-8 sm:p-12 max-w-[1050px] min-h-[740px]'
+                    : 'p-8 sm:p-12 max-w-[850px] min-h-[1100px]'
               }`}
             >
               {/* --- KOP SURAT RESMI BERSAMA DUA LOGO (Untuk Dokumen Pintu, Denah, Jurnal, dan BA) --- */}
@@ -3059,9 +3117,9 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                 previewDocType !== 'attendance' &&
                 previewDocType !== 'attendance2' && (
                 <>
-                  <div className="flex items-center justify-between gap-4 pb-3">
+                  <div className={`flex items-center justify-between gap-4 ${isCompactDoor ? 'pb-2' : 'pb-3'}`}>
                     {/* Logo Kiri: Pemda */}
-                    <div className="w-16 h-16 flex items-center justify-center shrink-0">
+                    <div className={`${isCompactDoor ? 'w-11 h-11' : 'w-16 h-16'} flex items-center justify-center shrink-0`}>
                       <img
                         src={settings.logoLeftPemda || DEFAULT_PEMDA_LOGO}
                         alt="Logo Pemda"
@@ -3071,10 +3129,10 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
 
                     {/* Kop Text */}
                     <div className="flex-1 text-center space-y-0.5">
-                      <p className="text-xs font-bold text-slate-800 tracking-widest uppercase">
+                      <p className={`${isCompactDoor ? 'text-2xs' : 'text-xs'} font-bold text-slate-800 tracking-widest uppercase`}>
                         {settings.governmentName}
                       </p>
-                      <h2 className="text-lg sm:text-xl font-bold text-slate-950 font-serif tracking-tight uppercase">
+                      <h2 className={`${isCompactDoor ? 'text-base sm:text-lg' : 'text-lg sm:text-xl'} font-bold text-slate-950 font-serif tracking-tight uppercase`}>
                         {settings.schoolName}
                       </h2>
                       <p className="text-2xs text-slate-600">
@@ -3089,7 +3147,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                     </div>
 
                     {/* Logo Kanan: Sekolah */}
-                    <div className="w-16 h-16 flex items-center justify-center shrink-0">
+                    <div className={`${isCompactDoor ? 'w-11 h-11' : 'w-16 h-16'} flex items-center justify-center shrink-0`}>
                       <img
                         src={settings.logoRightSchool || DEFAULT_SCHOOL_LOGO}
                         alt="Logo Sekolah"
@@ -3099,21 +3157,61 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                   </div>
 
                   {/* Double Line Border */}
-                  <div className="w-full border-b-[3px] border-b-black border-double mb-5" />
+                  <div className={`w-full border-b-[3px] border-b-black border-double ${isCompactDoor ? 'mb-2.5' : 'mb-5'}`} />
                 </>
               )}
 
               {/* ======================================================== */}
               {/* DOC 1 PREVIEW: TEMPELAN PINTU RUANG UJIAN                */}
               {/* ======================================================== */}
-              {previewDocType === 'door' && (
-                <div className="space-y-4">
+              {previewDocType === 'door' && (() => {
+                const doorSpacingClass =
+                  doorDensity === 'spacious'
+                    ? 'space-y-3.5'
+                    : doorDensity === 'normal'
+                      ? 'space-y-2.5'
+                      : doorDensity === 'compact'
+                        ? 'space-y-2'
+                        : 'space-y-1.5';
+                const doorBannerPadClass =
+                  doorDensity === 'spacious'
+                    ? 'p-3.5 space-y-1'
+                    : doorDensity === 'normal' || doorDensity === 'compact'
+                      ? 'p-2.5 space-y-0.5'
+                      : 'p-2 space-y-0.5';
+                const doorTitleSizeClass =
+                  doorDensity === 'spacious'
+                    ? 'text-2xl'
+                    : doorDensity === 'normal'
+                      ? 'text-xl'
+                      : 'text-lg';
+                const doorRowCellClass =
+                  doorDensity === 'spacious'
+                    ? 'py-1.5 px-2.5 text-xs leading-snug'
+                    : doorDensity === 'normal'
+                      ? 'py-1 px-2.5 text-[11px] leading-tight'
+                      : doorDensity === 'compact'
+                        ? 'py-[3px] px-2 text-[10.5px] leading-tight'
+                        : doorDensity === 'dense'
+                          ? 'py-[2px] px-2 text-[10px] leading-tight'
+                          : 'py-[1px] px-1.5 text-[9px] leading-tight';
+                const doorHeadCellClass =
+                  doorDensity === 'spacious'
+                    ? 'py-2 px-2.5 text-xs'
+                    : doorDensity === 'normal'
+                      ? 'py-1.5 px-2.5 text-[11px]'
+                      : doorDensity === 'compact'
+                        ? 'py-1 px-2 text-[10.5px]'
+                        : 'py-1 px-2 text-[10px]';
+
+                return (
+                <div className={`${doorSpacingClass} print:break-inside-avoid`}>
                   {/* Big Room Header Title */}
-                  <div className="bg-slate-900 text-white p-4 rounded-md text-center space-y-1">
-                    <span className="text-2xs uppercase tracking-widest text-slate-300 font-mono">
+                  <div className={`bg-slate-900 text-white rounded-md text-center ${doorBannerPadClass}`}>
+                    <span className="text-2xs uppercase tracking-widest text-slate-300 font-mono block">
                       DAFTAR TEMPELAN PINTU RUANG UJIAN
                     </span>
-                    <h1 className="text-2xl font-bold tracking-tight">
+                    <h1 className={`${doorTitleSizeClass} font-bold tracking-tight`}>
                       {selectedRoom?.name.toUpperCase()} ({selectedRoom?.code})
                     </h1>
                     <p className="text-xs text-slate-300">
@@ -3121,8 +3219,8 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                     </p>
                   </div>
 
-                  {/* Room Info Ribbon */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-slate-100 p-3 rounded-md border border-slate-200">
+                  {/* Room Info Ribbon (Tanpa Sesi Ujian) */}
+                  <div className={`grid grid-cols-3 gap-2 text-xs bg-slate-100 ${isCompactDoor ? 'p-2' : 'p-3'} rounded-md border border-slate-200`}>
                     <div>
                       <span className="text-2xs text-slate-500 block">LOKASI / GEDUNG</span>
                       <strong className="text-slate-900">{selectedRoom?.building}</strong>
@@ -3141,28 +3239,24 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                           : '-'}
                       </strong>
                     </div>
-                    <div>
-                      <span className="text-2xs text-slate-500 block">SESI UJIAN</span>
-                      <strong className="text-slate-900">{settings.examSession}</strong>
-                    </div>
                   </div>
 
                   {/* Notice Box for Students */}
-                  <div className="bg-amber-50 border border-amber-200 rounded p-2.5 text-2xs text-amber-900">
+                  <div className={`bg-amber-50 border border-amber-200 rounded ${isCompactDoor ? 'px-2.5 py-1.5' : 'p-2.5'} text-2xs text-amber-900 leading-snug`}>
                     <strong>Pemberitahuan Peserta:</strong> Denah di bawah mengikuti aturan kapasitas {selectedRoom?.capacity} meja ({selectedRoom?.columns} kolom). Pastikan Anda duduk di nomor meja yang sesuai dengan NIS dan Nomor Peserta. Harap siapkan Kartu Tanda Peserta sebelum memasuki ruangan.
                   </div>
 
                   {/* Table of Students conforming to Chair Rules */}
                   <div className="border border-slate-900 rounded overflow-hidden">
-                    <table className="w-full text-left text-xs border-collapse">
+                    <table className="w-full text-left border-collapse">
                       <thead className="bg-slate-800 text-white font-semibold">
                         <tr>
-                          <th className="py-2 px-3 text-center w-20 border-b border-r border-slate-700">No Meja</th>
-                          <th className="py-2 px-3 border-b border-r border-slate-700">No. Peserta</th>
-                          <th className="py-2 px-3 border-b border-r border-slate-700">NIS</th>
-                          <th className="py-2 px-3 border-b border-r border-slate-700">Nama Lengkap Siswa</th>
-                          <th className="py-2 px-3 border-b border-r border-slate-700">Kelas</th>
-                          <th className="py-2 px-3 text-center w-12 border-b border-slate-700">L/P</th>
+                          <th className={`${doorHeadCellClass} text-center w-20 border-b border-r border-slate-700 whitespace-nowrap`}>No Meja</th>
+                          <th className={`${doorHeadCellClass} border-b border-r border-slate-700 whitespace-nowrap`}>No. Peserta</th>
+                          <th className={`${doorHeadCellClass} border-b border-r border-slate-700 whitespace-nowrap`}>NIS</th>
+                          <th className={`${doorHeadCellClass} border-b border-r border-slate-700`}>Nama Lengkap Siswa</th>
+                          <th className={`${doorHeadCellClass} border-b border-r border-slate-700 whitespace-nowrap`}>Kelas</th>
+                          <th className={`${doorHeadCellClass} text-center w-10 border-b border-slate-700 whitespace-nowrap`}>L/P</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3173,22 +3267,22 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                           if (st) {
                             return (
                               <tr key={seatNo} className="hover:bg-slate-50 border-b border-slate-700 last:border-b-0">
-                                <td className="py-1.5 px-3 text-center font-mono font-bold text-slate-900 bg-slate-100 border-r border-slate-700">
+                                <td className={`${doorRowCellClass} text-center font-mono font-bold text-slate-900 bg-slate-100 border-r border-slate-700 whitespace-nowrap`}>
                                   Meja {String(seatNo).padStart(2, '0')}
                                 </td>
-                                <td className="py-1.5 px-3 font-mono font-bold text-slate-900 border-r border-slate-700">
+                                <td className={`${doorRowCellClass} font-mono font-bold text-slate-900 border-r border-slate-700 whitespace-nowrap`}>
                                   {st.participantNo}
                                 </td>
-                                <td className="py-1.5 px-3 font-mono text-slate-700 border-r border-slate-700">
+                                <td className={`${doorRowCellClass} font-mono text-slate-700 border-r border-slate-700 whitespace-nowrap`}>
                                   {st.nis}
                                 </td>
-                                <td className="py-1.5 px-3 font-semibold text-slate-900 border-r border-slate-700">
+                                <td className={`${doorRowCellClass} font-semibold text-slate-900 border-r border-slate-700`}>
                                   {st.name}
                                 </td>
-                                <td className="py-1.5 px-3 text-slate-700 border-r border-slate-700">
+                                <td className={`${doorRowCellClass} text-slate-700 border-r border-slate-700 whitespace-nowrap`}>
                                   {st.className}
                                 </td>
-                                <td className="py-1.5 px-3 text-center font-mono font-semibold">
+                                <td className={`${doorRowCellClass} text-center font-mono font-semibold whitespace-nowrap`}>
                                   {st.gender}
                                 </td>
                               </tr>
@@ -3197,16 +3291,16 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
 
                           return (
                             <tr key={seatNo} className="bg-slate-50/50 text-slate-400 border-b border-slate-700 last:border-b-0">
-                              <td className="py-1.5 px-3 text-center font-mono text-slate-400 border-r border-slate-700">
+                              <td className={`${doorRowCellClass} text-center font-mono text-slate-400 border-r border-slate-700 whitespace-nowrap`}>
                                 Meja {String(seatNo).padStart(2, '0')}
                               </td>
-                              <td className="py-1.5 px-3 font-mono border-r border-slate-700">-</td>
-                              <td className="py-1.5 px-3 font-mono border-r border-slate-700">-</td>
-                              <td className="py-1.5 px-3 italic text-slate-500 font-medium border-r border-slate-700">
+                              <td className={`${doorRowCellClass} font-mono border-r border-slate-700 whitespace-nowrap`}>-</td>
+                              <td className={`${doorRowCellClass} font-mono border-r border-slate-700 whitespace-nowrap`}>-</td>
+                              <td className={`${doorRowCellClass} italic text-slate-500 font-medium border-r border-slate-700`}>
                                 [ KURSI KOSONG / TERSEDIA ]
                               </td>
-                              <td className="py-1.5 px-3 border-r border-slate-700">-</td>
-                              <td className="py-1.5 px-3 text-center">-</td>
+                              <td className={`${doorRowCellClass} border-r border-slate-700 whitespace-nowrap`}>-</td>
+                              <td className={`${doorRowCellClass} text-center whitespace-nowrap`}>-</td>
                             </tr>
                           );
                         })}
@@ -3215,21 +3309,22 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                   </div>
 
                   {/* Footer note */}
-                  <div className="pt-4 flex justify-between items-end text-xs text-slate-600 border-t border-slate-200">
+                  <div className={`${isCompactDoor ? 'pt-2' : 'pt-3'} flex justify-between items-end text-xs text-slate-600 border-t border-slate-200`}>
                     <div>
-                      <span>Dicetak dari Sistem Administrasi Ujian Resmi</span>
+                      <span className={isCompactDoor ? 'text-2xs' : 'text-xs'}>Dicetak dari Sistem Administrasi Ujian Resmi</span>
                       <p className="text-2xs text-slate-400">Harap ditempel di daun pintu masuk ruang ujian.</p>
                     </div>
                     <div className="text-right">
                       <p className="text-2xs text-slate-600">
                         {extractCityFromSettings(settings)}, {extractSignatureDateFromSettings(settings)}
                       </p>
-                      <p className="font-semibold text-slate-900">{settings.schoolName}</p>
+                      <p className={`font-semibold text-slate-900 ${isCompactDoor ? 'text-2xs' : 'text-xs'}`}>{settings.schoolName}</p>
                       <p className="text-2xs">Ketua Panitia: {settings.committeeHead}</p>
                     </div>
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {/* ======================================================== */}
               {/* DOC 2 PREVIEW: DENAH TEMPAT DUDUK (PHYSICAL SEAT GRID)   */}
@@ -3248,6 +3343,15 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                         settings
                       )
                     : selectedRoom?.invigilator1 || '';
+                const seatingInvNip =
+                  selectedRoom && selectedDayGroup
+                    ? getRoomDaySessionInvigilatorNip(
+                        selectedRoom,
+                        selectedDayGroup.dayKey,
+                        activeSeatingSchedule?.id,
+                        settings
+                      )
+                    : selectedRoom?.invigilator1Nip || '';
                 return (
                 <div className="space-y-4">
                   <div className="text-center pb-2">
@@ -3267,6 +3371,11 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                       <p className="text-2xs truncate">
                         {seatingInvName || '-'}
                       </p>
+                      {seatingInvNip && (
+                        <p className="text-[10px] font-mono text-amber-800 truncate">
+                          NIP. {seatingInvNip}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -3365,6 +3474,9 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                       <p className="font-bold">Pengawas Ruang</p>
                       <div className="h-14" />
                       <p className="font-bold underline">({seatingInvName || '.....................................'})</p>
+                      {seatingInvNip && (
+                        <p className="text-2xs font-mono">NIP. {seatingInvNip}</p>
+                      )}
                     </div>
                   </div>
                 </div>

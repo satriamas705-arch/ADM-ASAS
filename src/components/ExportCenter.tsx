@@ -394,7 +394,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
             <span>Pilihan Ukuran Kertas Cetak (PDF &amp; Browser Print)</span>
           </h2>
           <p className="text-2xs text-slate-500 mt-0.5">
-            Diterapkan otomatis ke seluruh dokumen PDF (Daftar Hadir, Kartu Ujian, Kartu Meja, Jadwal, Matriks, dan Daftar Pengawas).
+            Diterapkan otomatis ke seluruh dokumen PDF (Tempelan Pintu, Daftar Hadir, Kartu Ujian, Kartu Meja, Jadwal, Matriks, dan Daftar Pengawas).
           </p>
         </div>
 
@@ -789,7 +789,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
               </div>
 
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-slate-600">
-                Ukuran teks besar dan kontras tinggi memudahkan siswa memeriksa nomor kursi, nomor peserta, dan nama dari luar ruangan sebelum memasuki kelas.
+                Otomatis disesuaikan menjadi <strong>1 halaman penuh</strong> sesuai ukuran kertas terpilih ({activePaperSpec.shortLabel}) sehingga nomor meja, nomor peserta, NIS, dan nama siswa langsung siap tempel di daun pintu ruangan.
               </div>
             </div>
           </div>

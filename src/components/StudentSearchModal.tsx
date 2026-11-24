@@ -180,11 +180,18 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
                           <span className="text-slate-500">Sesi Pelaksanaan:</span>
                           <span className="font-medium text-slate-800">{settings.examSession}</span>
                         </div>
-                        <div className="flex justify-between py-0.5">
-                          <span className="text-slate-500">Pengawas Ruang:</span>
-                          <span className="font-medium text-slate-800 truncate" title={room?.invigilator1}>
-                            {room?.invigilator1 || '-'}
-                          </span>
+                        <div className="flex justify-between py-0.5 gap-2">
+                          <span className="text-slate-500 shrink-0">Pengawas Ruang:</span>
+                          <div className="text-right min-w-0">
+                            <span className="font-medium text-slate-800 truncate block" title={room?.invigilator1}>
+                              {room?.invigilator1 || '-'}
+                            </span>
+                            {room?.invigilator1Nip && (
+                              <span className="text-2xs font-mono text-slate-500 truncate block">
+                                NIP. {room.invigilator1Nip}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

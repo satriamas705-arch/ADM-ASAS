@@ -3,6 +3,7 @@ import { Save, Upload, Trash2 } from 'lucide-react';
 import { ExamSettings, Room, Student, ExamScheduleItem } from '../types';
 import { extractCityFromAddress } from '../utils/examDocuments';
 import { ExamBackupData } from '../utils/backupRestore';
+import { processStampFileToTransparentPng } from '../utils/imageTransparency';
 import { BackupRestoreCard } from './BackupRestoreCard';
 
 interface SettingsModalProps {
@@ -42,7 +43,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleAssetUpload = (
+  const handleAssetUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     field: 'headmasterSignature' | 'committeeSignature' | 'schoolStamp',
     label: string
@@ -55,6 +56,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       return;
     }
     setUploadError(null);
+    if (field === 'schoolStamp') {
+      try {
+        const transparentPng = await processStampFileToTransparentPng(file);
+        setFormData((prev) => ({ ...prev, schoolStamp: transparentPng }));
+        return;
+      } catch {
+        // Fall back to direct Data URL read below if canvas decode fails
+      }
+    }
     const reader = new FileReader();
     reader.onload = (ev) => {
       const result = ev.target?.result as string;

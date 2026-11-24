@@ -9,7 +9,7 @@ interface OfficialSignatureGraphicProps {
 
 /**
  * Renders an official wet-signature look in HTML previews:
- * signature centered/aligned with an enlarged school stamp overlapping on top (menimpa TTD).
+ * school stamp is positioned to the left of the signature so it does not cover the signature strokes.
  */
 export const OfficialSignatureGraphic: React.FC<OfficialSignatureGraphicProps> = ({
   signatureUrl,
@@ -22,25 +22,29 @@ export const OfficialSignatureGraphic: React.FC<OfficialSignatureGraphicProps> =
   return (
     <div
       className={`relative ${heightClass} flex items-center ${
-        align === 'left' ? 'justify-start pl-4' : 'justify-center'
+        align === 'left' ? 'justify-start pl-10' : 'justify-center'
       } select-none overflow-visible my-0.5`}
     >
-      {signatureUrl && (
-        <img
-          src={signatureUrl}
-          alt="Tanda Tangan"
-          className="pointer-events-none object-contain mix-blend-multiply h-[94%] w-auto max-w-[140px] relative z-10"
-        />
-      )}
-      {stampUrl && (
-        <img
-          src={stampUrl}
-          alt="Stempel Sekolah"
-          className={`pointer-events-none object-contain opacity-90 mix-blend-multiply h-[160%] w-auto max-w-[104px] absolute top-1/2 -translate-y-1/2 z-20 ${
-            align === 'left' ? 'left-0 -translate-x-1' : 'left-1/2 -translate-x-[74%]'
-          }`}
-        />
-      )}
+      <div className="relative inline-flex items-center justify-center h-full">
+        {signatureUrl && (
+          <img
+            src={signatureUrl}
+            alt="Tanda Tangan"
+            className="pointer-events-none object-contain mix-blend-multiply h-[94%] w-auto max-w-[140px] relative z-10"
+          />
+        )}
+        {stampUrl && (
+          <img
+            src={stampUrl}
+            alt="Stempel Sekolah"
+            className={`pointer-events-none object-contain opacity-80 mix-blend-multiply h-[155%] w-auto max-w-[100px] z-20 ${
+              signatureUrl
+                ? 'absolute top-1/2 -translate-y-1/2 right-[92%]'
+                : 'relative'
+            }`}
+          />
+        )}
+      </div>
       {!hasGraphic && <span className="sr-only">Area Tanda Tangan</span>}
     </div>
   );
