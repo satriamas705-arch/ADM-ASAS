@@ -122,7 +122,7 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
                 <span className="font-mono text-slate-500">{matchedStudent.participantNo || 'NO. PESERTA BELUM DISET'}</span>
               </div>
 
-              {/* Card Body (1,5 Spasi) */}
+              {/* Card Body (1,5 Spasi Kartu + Tabel Mapel 2 Spasi) */}
               <div className="p-4 space-y-5">
                 {matchedStudent.roomId ? (
                   <>
@@ -152,28 +152,44 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 leading-relaxed text-xs pt-1 border-t border-slate-100">
-                      <div className="flex justify-between py-0.5">
-                        <span className="text-slate-500">Kelas / Rombel:</span>
-                        <span className="font-semibold text-slate-900">{matchedStudent.className}</span>
+                    <div className="flex gap-3.5 items-start pt-1 border-t border-slate-100">
+                      <div className="w-16 h-21 rounded border-2 border-slate-800 bg-slate-50 flex flex-col items-center justify-center text-center overflow-hidden shrink-0">
+                        {matchedStudent.photoUrl ? (
+                          <img
+                            src={matchedStudent.photoUrl}
+                            alt={matchedStudent.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="p-1 flex flex-col items-center justify-center">
+                            <User className="w-4 h-4 text-slate-400 mb-0.5" />
+                            <span className="text-3xs font-bold text-slate-500 uppercase">2x3</span>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex justify-between py-0.5">
-                        <span className="text-slate-500">Jenis Kelamin:</span>
-                        <span className="font-medium text-slate-800">{matchedStudent.gender === 'L' ? 'Laki-Laki (L)' : 'Perempuan (P)'}</span>
-                      </div>
-                      <div className="flex justify-between py-0.5">
-                        <span className="text-slate-500">Sesi Pelaksanaan:</span>
-                        <span className="font-medium text-slate-800">{settings.examSession}</span>
-                      </div>
-                      <div className="flex justify-between py-0.5">
-                        <span className="text-slate-500">Pengawas Ruang:</span>
-                        <span className="font-medium text-slate-800 truncate" title={room?.invigilator1}>
-                          {room?.invigilator1 || '-'}
-                        </span>
+                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5 leading-relaxed text-xs">
+                        <div className="flex justify-between py-0.5">
+                          <span className="text-slate-500">Kelas / Rombel:</span>
+                          <span className="font-semibold text-slate-900">{matchedStudent.className}</span>
+                        </div>
+                        <div className="flex justify-between py-0.5">
+                          <span className="text-slate-500">Jenis Kelamin:</span>
+                          <span className="font-medium text-slate-800">{matchedStudent.gender === 'L' ? 'Laki-Laki (L)' : 'Perempuan (P)'}</span>
+                        </div>
+                        <div className="flex justify-between py-0.5">
+                          <span className="text-slate-500">Sesi Pelaksanaan:</span>
+                          <span className="font-medium text-slate-800">{settings.examSession}</span>
+                        </div>
+                        <div className="flex justify-between py-0.5">
+                          <span className="text-slate-500">Pengawas Ruang:</span>
+                          <span className="font-medium text-slate-800 truncate" title={room?.invigilator1}>
+                            {room?.invigilator1 || '-'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Schedule on card (1.5 spasi) */}
+                    {/* Schedule on card (2 spasi) */}
                     <div className="pt-2 border-t border-slate-200">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-2xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
@@ -184,26 +200,26 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
                       </div>
 
                       <div className="border-2 border-slate-900 rounded-md overflow-hidden text-2xs">
-                        <table className="w-full text-left border-collapse leading-relaxed">
+                        <table className="w-full text-left border-collapse leading-loose">
                           <thead className="bg-slate-900 text-white font-semibold">
                             <tr>
-                              <th className="py-2 px-2 w-7 text-center border-b border-r border-slate-700">No</th>
-                              <th className="py-2 px-2 border-b border-r border-slate-700">Hari &amp; Tanggal</th>
-                              <th className="py-2 px-2 w-24 text-center border-b border-r border-slate-700">Waktu</th>
-                              <th className="py-2 px-2 border-b border-r border-slate-700">Mata Pelajaran</th>
-                              <th className="py-2 px-2 w-16 text-center border-b border-slate-700">Paraf</th>
+                              <th className="py-2.5 px-2 w-7 text-center border-b border-r border-slate-700">No</th>
+                              <th className="py-2.5 px-2 border-b border-r border-slate-700">Hari &amp; Tanggal</th>
+                              <th className="py-2.5 px-2 w-24 text-center border-b border-r border-slate-700">Waktu</th>
+                              <th className="py-2.5 px-2 border-b border-r border-slate-700">Mata Pelajaran</th>
+                              <th className="py-2.5 px-2 w-16 text-center border-b border-slate-700">Paraf</th>
                             </tr>
                           </thead>
                           <tbody className="font-mono">
                             {getSchedulesForStudentCard(matchedStudent, schedules).map((sch, i) => (
                               <tr key={sch.id} className="hover:bg-slate-50 border-b border-slate-900 last:border-b-0">
-                                <td className="py-2.5 px-2 text-center font-bold text-slate-700 border-r border-slate-900">{i + 1}</td>
-                                <td className="py-2.5 px-2 font-sans font-medium text-slate-900 border-r border-slate-900 whitespace-nowrap">
+                                <td className="py-3.5 px-2 text-center font-bold text-slate-700 border-r border-slate-900">{i + 1}</td>
+                                <td className="py-3.5 px-2 font-sans font-medium text-slate-900 border-r border-slate-900 whitespace-nowrap">
                                   {sch.day}, {sch.date}
                                 </td>
-                                <td className="py-2.5 px-2 text-center text-slate-700 text-3xs border-r border-slate-900 whitespace-nowrap">{sch.time}</td>
-                                <td className="py-2.5 px-2 font-sans font-semibold text-slate-950 border-r border-slate-900">{sch.subject}</td>
-                                <td className="py-2.5 px-2 text-center">&nbsp;</td>
+                                <td className="py-3.5 px-2 text-center text-slate-700 text-3xs border-r border-slate-900 whitespace-nowrap">{sch.time}</td>
+                                <td className="py-3.5 px-2 font-sans font-semibold text-slate-950 border-r border-slate-900">{sch.subject}</td>
+                                <td className="py-3.5 px-2 text-center">&nbsp;</td>
                               </tr>
                             ))}
                           </tbody>

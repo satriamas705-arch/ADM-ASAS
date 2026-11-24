@@ -214,12 +214,15 @@ export function exportBackupSql(
   lines.push('  room_id VARCHAR(128),');
   lines.push('  room_name VARCHAR(255),');
   lines.push('  seat_number INTEGER,');
-  lines.push('  participant_no VARCHAR(128)');
+  lines.push('  participant_no VARCHAR(128),');
+  lines.push('  photo_url TEXT,');
+  lines.push('  photo_drive_file_id VARCHAR(255),');
+  lines.push('  photo_file_name VARCHAR(255)');
   lines.push(');');
   lines.push('DELETE FROM exam_students;');
   for (const s of students) {
     lines.push(
-      'INSERT INTO exam_students (id, nis, nisn, name, class_name, gender, room_id, room_name, seat_number, participant_no) VALUES (' +
+      'INSERT INTO exam_students (id, nis, nisn, name, class_name, gender, room_id, room_name, seat_number, participant_no, photo_url, photo_drive_file_id, photo_file_name) VALUES (' +
         [
           sqlValue(s.id),
           sqlValue(s.nis),
@@ -231,6 +234,9 @@ export function exportBackupSql(
           sqlValue(s.roomName ?? null),
           sqlValue(s.seatNumber ?? null),
           sqlValue(s.participantNo ?? null),
+          sqlValue(s.photoUrl ?? null),
+          sqlValue(s.photoDriveFileId ?? null),
+          sqlValue(s.photoFileName ?? null),
         ].join(', ') +
         ');'
     );
@@ -383,6 +389,9 @@ function normalizeStudents(raw: unknown[]): Student[] {
       const roomIdRaw = s.roomId ?? s.room_id;
       const roomNameRaw = s.roomName ?? s.room_name;
       const partNoRaw = s.participantNo ?? s.participant_no;
+      const photoUrlRaw = s.photoUrl ?? s.photo_url;
+      const photoDriveRaw = s.photoDriveFileId ?? s.photo_drive_file_id;
+      const photoNameRaw = s.photoFileName ?? s.photo_file_name;
 
       return {
         id: String(s.id ?? `std-restored-${idx + 1}`),
@@ -400,6 +409,18 @@ function normalizeStudents(raw: unknown[]): Student[] {
         participantNo:
           partNoRaw !== null && partNoRaw !== undefined && partNoRaw !== ''
             ? String(partNoRaw)
+            : undefined,
+        photoUrl:
+          photoUrlRaw !== null && photoUrlRaw !== undefined && photoUrlRaw !== ''
+            ? String(photoUrlRaw)
+            : undefined,
+        photoDriveFileId:
+          photoDriveRaw !== null && photoDriveRaw !== undefined && photoDriveRaw !== ''
+            ? String(photoDriveRaw)
+            : undefined,
+        photoFileName:
+          photoNameRaw !== null && photoNameRaw !== undefined && photoNameRaw !== ''
+            ? String(photoNameRaw)
             : undefined,
       };
     });
@@ -735,6 +756,9 @@ const DEFAULT_TABLE_COLUMNS: Record<string, string[]> = {
     'room_name',
     'seat_number',
     'participant_no',
+    'photo_url',
+    'photo_drive_file_id',
+    'photo_file_name',
   ],
   exam_schedules: ['id', 'day_name', 'exam_date', 'exam_time', 'subject', 'grade', 'room_notes'],
   exam_journals: ['room_id', 'signature_city', 'signature_date_text', 'sessions_json'],

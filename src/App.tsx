@@ -291,6 +291,44 @@ export default function App() {
     showToast('Semua data siswa telah dibersihkan.');
   };
 
+  const handleApplyStudentPhotos = (
+    updates: { studentId: string; photoUrl: string; fileId: string; fileName: string }[],
+    classLabel: string
+  ) => {
+    const updateMap = new Map(updates.map((u) => [u.studentId, u]));
+    setStudents((prev) =>
+      prev.map((s) => {
+        const hit = updateMap.get(s.id);
+        if (!hit) return s;
+        return {
+          ...s,
+          photoUrl: hit.photoUrl,
+          photoDriveFileId: hit.fileId,
+          photoFileName: hit.fileName,
+        };
+      })
+    );
+    showToast(
+      `Berhasil menerapkan ${updates.length} pas foto siswa untuk ${classLabel} (tersinkron ke Kartu Ujian).`
+    );
+  };
+
+  const handleClearClassPhotos = (className: string) => {
+    setStudents((prev) =>
+      prev.map((s) =>
+        s.className === className
+          ? {
+              ...s,
+              photoUrl: undefined,
+              photoDriveFileId: undefined,
+              photoFileName: undefined,
+            }
+          : s
+      )
+    );
+    showToast(`Pas foto siswa kelas ${className} berhasil direset.`);
+  };
+
   // Room CRUD
   const handleAddRoom = (newRoom: Omit<Room, 'id'>) => {
     const created: Room = {
@@ -457,12 +495,16 @@ export default function App() {
         {activeTab === 'manage-students' && (
           <StudentManagement
             students={students}
+            settings={settings}
+            onUpdateSettings={setSettings}
             onAddStudent={handleAddStudent}
             onEditStudent={handleEditStudent}
             onDeleteStudent={handleDeleteStudent}
             onImportStudents={handleImportStudents}
             onLoadSampleStudents={handleLoadSampleStudents}
             onClearAllStudents={handleClearAllStudents}
+            onApplyStudentPhotos={handleApplyStudentPhotos}
+            onClearClassPhotos={handleClearClassPhotos}
           />
         )}
 

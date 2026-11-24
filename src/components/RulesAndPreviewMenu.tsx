@@ -3421,7 +3421,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                     if (!cardStudent) return null;
                     return (
                       <React.Fragment key={cardIdx}>
-                        {/* The Exam Card Container (1,5 Spasi + TTD & Stempel Kepala Sekolah) */}
+                        {/* The Exam Card Container (1,5 Spasi Kartu + Tabel Mapel 2 Spasi) */}
                         <div className="border-2 border-black rounded-lg p-5 bg-white shadow-2xs space-y-5">
                           {/* Card Kop Surat with Dual Logos */}
                           <div className="flex items-center justify-between gap-3 border-b-2 border-black pb-2.5">
@@ -3460,12 +3460,22 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                           {/* Student Identity Grid & Photo (1.5 spasi) */}
                           <div className="flex gap-4 items-start">
                             {/* 2x3 Photo Box */}
-                            <div className="w-20 h-26 rounded border-2 border-slate-800 bg-slate-50 flex flex-col items-center justify-center text-center p-1 shrink-0">
-                              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 mb-1">
-                                <Users className="w-4 h-4" />
-                              </div>
-                              <span className="text-3xs font-bold text-slate-600 uppercase">Pas Foto</span>
-                              <span className="text-3xs text-slate-500">2 x 3 cm</span>
+                            <div className="w-20 h-26 rounded border-2 border-slate-800 bg-slate-50 flex flex-col items-center justify-center text-center overflow-hidden shrink-0">
+                              {cardStudent.photoUrl ? (
+                                <img
+                                  src={cardStudent.photoUrl}
+                                  alt={cardStudent.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="p-1 flex flex-col items-center justify-center">
+                                  <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 mb-1">
+                                    <Users className="w-4 h-4" />
+                                  </div>
+                                  <span className="text-3xs font-bold text-slate-600 uppercase">Pas Foto</span>
+                                  <span className="text-3xs text-slate-500">2 x 3 cm</span>
+                                </div>
+                              )}
                             </div>
 
                             {/* Identity Fields */}
@@ -3536,17 +3546,17 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                             </div>
                           </div>
 
-                          {/* Timetable AutoTable with Bold Table Borders, 1.5 Spasi & Paraf Pengawas */}
+                          {/* Timetable AutoTable with Bold Table Borders, 2 Spasi & Paraf Pengawas */}
                           <div className="border-2 border-black rounded overflow-hidden">
-                            <table className="w-full text-left text-2xs border-collapse leading-relaxed">
+                            <table className="w-full text-left text-2xs border-collapse leading-loose">
                               <thead className="bg-slate-900 text-white font-semibold">
                                 <tr>
-                                  <th className="py-2 px-2 w-8 text-center border-b border-r border-slate-700">No</th>
-                                  <th className="py-2 px-2 w-20 border-b border-r border-slate-700">Hari</th>
-                                  <th className="py-2 px-2 w-32 border-b border-r border-slate-700">Tanggal</th>
-                                  <th className="py-2 px-2 w-28 text-center border-b border-r border-slate-700">Waktu</th>
-                                  <th className="py-2 px-2 border-b border-r border-slate-700">Mata Pelajaran Ujian</th>
-                                  <th className="py-2 px-2 w-24 text-center bg-slate-800 border-b border-slate-700">
+                                  <th className="py-2.5 px-2 w-8 text-center border-b border-r border-slate-700">No</th>
+                                  <th className="py-2.5 px-2 w-20 border-b border-r border-slate-700">Hari</th>
+                                  <th className="py-2.5 px-2 w-32 border-b border-r border-slate-700">Tanggal</th>
+                                  <th className="py-2.5 px-2 w-28 text-center border-b border-r border-slate-700">Waktu</th>
+                                  <th className="py-2.5 px-2 border-b border-r border-slate-700">Mata Pelajaran Ujian</th>
+                                  <th className="py-2.5 px-2 w-24 text-center bg-slate-800 border-b border-slate-700">
                                     Paraf Pengawas
                                   </th>
                                 </tr>
@@ -3554,22 +3564,22 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                               <tbody>
                                 {getSchedulesForStudentCard(cardStudent, schedules).map((sch, schIdx) => (
                                   <tr key={sch.id} className="even:bg-slate-50 border-b border-black last:border-b-0">
-                                    <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-900 border-r border-black">
+                                    <td className="py-3.5 px-2 text-center font-mono font-bold text-slate-900 border-r border-black">
                                       {schIdx + 1}
                                     </td>
-                                    <td className="py-2.5 px-2 font-semibold text-black border-r border-black whitespace-nowrap">
+                                    <td className="py-3.5 px-2 font-semibold text-black border-r border-black whitespace-nowrap">
                                       {sch.day}
                                     </td>
-                                    <td className="py-2.5 px-2 font-medium text-black border-r border-black whitespace-nowrap">
+                                    <td className="py-3.5 px-2 font-medium text-black border-r border-black whitespace-nowrap">
                                       {sch.date}
                                     </td>
-                                    <td className="py-2.5 px-2 text-center font-mono text-black border-r border-black whitespace-nowrap">
+                                    <td className="py-3.5 px-2 text-center font-mono text-black border-r border-black whitespace-nowrap">
                                       {sch.time}
                                     </td>
-                                    <td className="py-2.5 px-2 font-semibold text-black border-r border-black">
+                                    <td className="py-3.5 px-2 font-semibold text-black border-r border-black">
                                       {sch.subject}
                                     </td>
-                                    <td className="py-2.5 px-2 text-center">&nbsp;</td>
+                                    <td className="py-3.5 px-2 text-center">&nbsp;</td>
                                   </tr>
                                 ))}
                               </tbody>

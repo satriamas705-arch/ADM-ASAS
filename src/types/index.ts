@@ -10,6 +10,10 @@ export interface Student {
   roomName?: string;
   seatNumber?: number;
   participantNo?: string;
+  // Student pas foto (Data URL optimized for cards & PDF)
+  photoUrl?: string;
+  photoDriveFileId?: string;
+  photoFileName?: string;
 }
 
 export interface Room {
@@ -99,6 +103,9 @@ export interface ExamSettings {
   headmasterSignature?: string;
   committeeSignature?: string;
   schoolStamp?: string;
+
+  // Link Folder Google Drive untuk Foto Siswa per Kelas (key: className, value: Drive URL)
+  classDrivePhotoLinks?: Record<string, string>;
 
   // Pilihan Ukuran Kertas Cetak (PDF & Print)
   paperSize?: PaperSize;

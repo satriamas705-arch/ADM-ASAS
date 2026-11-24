@@ -933,7 +933,7 @@ export function exportExamCardsPdf(
   filteredStudents.forEach((student, index) => {
     const visibleSchedules = getSchedulesForStudentCard(student, schedules);
     const rowCount = visibleSchedules.length;
-    const useFullPageCard = rowCount > 22;
+    const useFullPageCard = rowCount > 14;
     const cardHeight = useFullPageCard ? singleCardHeight : twoCardHeight;
 
     if (
@@ -989,13 +989,20 @@ export function exportExamCardsPdf(
     // Photo Box (2x3 format)
     const photoX = x + 4.5;
     const photoY = y + 19.2;
-    doc.setDrawColor(...LINE_DARK);
-    doc.setLineWidth(0.38);
-    doc.rect(photoX, photoY, 17.5, 23, 'S');
-    doc.setFontSize(6.5);
-    doc.setTextColor(100, 116, 139);
-    doc.text('Pas Foto', photoX + 8.75, photoY + 10.5, { align: 'center' });
-    doc.text('2 x 3', photoX + 8.75, photoY + 14.5, { align: 'center' });
+    if (student.photoUrl) {
+      addImageSafe(doc, student.photoUrl, photoX + 0.35, photoY + 0.35, 16.8, 22.3);
+      doc.setDrawColor(...LINE_DARK);
+      doc.setLineWidth(0.45);
+      doc.rect(photoX, photoY, 17.5, 23, 'S');
+    } else {
+      doc.setDrawColor(...LINE_DARK);
+      doc.setLineWidth(0.38);
+      doc.rect(photoX, photoY, 17.5, 23, 'S');
+      doc.setFontSize(6.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Pas Foto', photoX + 8.75, photoY + 10.5, { align: 'center' });
+      doc.text('2 x 3', photoX + 8.75, photoY + 14.5, { align: 'center' });
+    }
 
     // Student Identity Grid (2 Columns next to photo, 1.5 spasi vertical spacing)
     const idX1 = photoX + 21;
@@ -1050,27 +1057,24 @@ export function exportExamCardsPdf(
     const tableStartY = y + 44.2;
     const availableTableHeight = Math.max(40, sigTopY - tableStartY - 2.0);
 
-    // Determine single-table vs 2-column side-by-side table to keep 1.5 spasi without overflow
-    const estimatedSingleRowH = rowCount <= 8 ? 6.5 : 5.6;
-    const estimatedSingleTableH = 6.2 + rowCount * estimatedSingleRowH;
+    // Determine single-table vs 2-column side-by-side table to keep tabel mapel at 2 spasi without overflow
+    const estimatedSingleRowH = 8.5;
+    const estimatedSingleTableH = 7.2 + rowCount * estimatedSingleRowH;
     const canFitSingleTable =
-      rowCount <= 12 && (useFullPageCard || estimatedSingleTableH <= availableTableHeight);
+      (useFullPageCard && rowCount <= 22) ||
+      (rowCount <= 8 && estimatedSingleTableH <= availableTableHeight);
 
     if (canFitSingleTable) {
-      let fontSize = 7.0;
-      let headFontSize = 7.0;
-      let minCellHeight = 6.4; // 1.5 spasi comfortable height
-      let cellPadding = { top: 1.9, bottom: 1.9, left: 1.3, right: 1.3 };
+      let fontSize = 7.2;
+      let headFontSize = 7.2;
+      let minCellHeight = 8.5; // 2 spasi untuk tabel mata pelajaran
+      let cellPadding = { top: 2.7, bottom: 2.7, left: 1.4, right: 1.4 };
 
-      if (rowCount >= 9) {
-        fontSize = 6.4;
-        headFontSize = 6.6;
-        minCellHeight = 5.4;
-        cellPadding = { top: 1.45, bottom: 1.45, left: 1.15, right: 1.15 };
-      } else if (availableTableHeight < 60 && rowCount >= 7) {
-        // Slightly tighter on shorter Letter paper so 8 rows + signature never overlap
-        minCellHeight = 5.9;
-        cellPadding = { top: 1.65, bottom: 1.65, left: 1.25, right: 1.25 };
+      if (useFullPageCard && rowCount > 18) {
+        fontSize = 6.8;
+        headFontSize = 7.0;
+        minCellHeight = 7.9;
+        cellPadding = { top: 2.4, bottom: 2.4, left: 1.3, right: 1.3 };
       }
 
       const tableBody = visibleSchedules.map((sch, schIdx) => [
@@ -1098,7 +1102,7 @@ export function exportExamCardsPdf(
           fontStyle: 'bold',
           halign: 'center',
           valign: 'middle',
-          cellPadding: { top: 1.3, bottom: 1.3, left: 1.1, right: 1.1 },
+          cellPadding: { top: 1.8, bottom: 1.8, left: 1.2, right: 1.2 },
         },
         styles: {
           fontSize,
@@ -1122,18 +1126,19 @@ export function exportExamCardsPdf(
         },
       });
     } else {
-      // Side-by-side 2 tables so many subjects still maintain 1.5 spasi & leave room for Headmaster stamp/TTD
+      // Side-by-side 2 tables so many subjects maintain 2 spasi & leave room for Headmaster stamp/TTD
       const half = Math.ceil(rowCount / 2);
       const leftItems = visibleSchedules.slice(0, half);
       const rightItems = visibleSchedules.slice(half);
       const innerPadX = 4.0;
       const gapMm = 2.5;
       const halfTableWidth = (cardWidth - innerPadX * 2 - gapMm) / 2;
-      const compactFont = rowCount > 20 ? 5.6 : 6.0;
-      const compactMinH = rowCount > 20 ? 5.2 : 5.8;
-      const compactPad = rowCount > 20
-        ? { top: 1.15, bottom: 1.15, left: 0.85, right: 0.85 }
-        : { top: 1.45, bottom: 1.45, left: 0.9, right: 0.9 };
+      const denseHalf = half > 6 && !useFullPageCard;
+      const compactFont = denseHalf ? 5.8 : 6.2;
+      const compactMinH = denseHalf ? 7.6 : 8.4;
+      const compactPad = denseHalf
+        ? { top: 1.85, bottom: 1.85, left: 0.9, right: 0.9 }
+        : { top: 2.2, bottom: 2.2, left: 0.95, right: 0.95 };
 
       const renderHalfTable = (
         items: ExamScheduleItem[],

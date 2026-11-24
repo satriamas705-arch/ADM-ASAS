@@ -840,7 +840,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
               </div>
 
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-slate-600">
-                Format lega <strong>1,5 spasi</strong> dengan identitas siswa, pas foto 2x3, jadwal ujian bergaris tabel tegas (kolom <strong>paraf pengawas ruang</strong>), serta pengesahan <strong>TTD &amp; Stempel Kepala Sekolah</strong> di bagian kanan bawah kartu.
+                Format kartu <strong>1,5 spasi</strong> dengan <strong>tabel mapel 2 spasi</strong>, identitas siswa, pas foto 2x3, kolom <strong>paraf pengawas ruang</strong>, serta pengesahan <strong>TTD &amp; Stempel Kepala Sekolah</strong> di bagian kanan bawah kartu.
               </div>
             </div>
           </div>

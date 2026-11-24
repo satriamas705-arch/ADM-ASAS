@@ -11,37 +11,62 @@ import {
   AlertCircle,
   AlertTriangle,
   Check,
+  FolderOpen,
+  Image as ImageIcon,
+  User,
+  Link2,
+  Loader2,
 } from 'lucide-react';
-import { Student } from '../types';
+import { ExamSettings, Student } from '../types';
 import { exportStudentTemplateExcel, parseStudentsFromExcel } from '../utils/exportExcel';
-import { sampleStudents } from '../utils/sampleData';
+import { StudentDrivePhotoModal } from './StudentDrivePhotoModal';
+import {
+  downloadDriveImageAsDataUrl,
+  extractDriveFileId,
+  getDriveAccessToken,
+  resizeImageBlobToPassportDataUrl,
+  signInWithGoogleDrive,
+} from '../utils/googleDrivePhotos';
 
 interface StudentManagementProps {
   students: Student[];
+  settings: ExamSettings;
+  onUpdateSettings: (newSettings: ExamSettings) => void;
   onAddStudent: (student: Omit<Student, 'id'>) => void;
   onEditStudent: (student: Student) => void;
   onDeleteStudent: (id: string) => void;
   onImportStudents: (imported: Student[]) => void;
   onLoadSampleStudents: () => void;
   onClearAllStudents: () => void;
+  onApplyStudentPhotos: (
+    updates: { studentId: string; photoUrl: string; fileId: string; fileName: string }[],
+    classLabel: string
+  ) => void;
+  onClearClassPhotos: (className: string) => void;
 }
 
 export const StudentManagement: React.FC<StudentManagementProps> = ({
   students,
+  settings,
+  onUpdateSettings,
   onAddStudent,
   onEditStudent,
   onDeleteStudent,
   onImportStudents,
   onLoadSampleStudents,
   onClearAllStudents,
+  onApplyStudentPhotos,
+  onClearClassPhotos,
 }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isDrivePhotoModalOpen, setIsDrivePhotoModalOpen] = useState(false);
   const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const studentPhotoInputRef = useRef<HTMLInputElement>(null);
 
   // Form states
   const [formNis, setFormNis] = useState('');
@@ -49,6 +74,10 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
   const [formName, setFormName] = useState('');
   const [formClass, setFormClass] = useState('X MIPA 1');
   const [formGender, setFormGender] = useState<'L' | 'P'>('L');
+  const [formPhotoUrl, setFormPhotoUrl] = useState<string | undefined>(undefined);
+  const [formPhotoDriveLink, setFormPhotoDriveLink] = useState('');
+  const [isFetchingSinglePhoto, setIsFetchingSinglePhoto] = useState(false);
+  const [singlePhotoError, setSinglePhotoError] = useState<string | null>(null);
 
   const openAddModal = () => {
     setEditingStudent(null);
@@ -57,6 +86,9 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
     setFormName('');
     setFormClass('X MIPA 1');
     setFormGender('L');
+    setFormPhotoUrl(undefined);
+    setFormPhotoDriveLink('');
+    setSinglePhotoError(null);
     setIsAddModalOpen(true);
   };
 
@@ -67,7 +99,51 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
     setFormName(st.name);
     setFormClass(st.className);
     setFormGender(st.gender);
+    setFormPhotoUrl(st.photoUrl);
+    setFormPhotoDriveLink('');
+    setSinglePhotoError(null);
     setIsAddModalOpen(true);
+  };
+
+  const handleSingleLocalPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setSinglePhotoError(null);
+    try {
+      const optimized = await resizeImageBlobToPassportDataUrl(file);
+      setFormPhotoUrl(optimized);
+    } catch (err: unknown) {
+      setSinglePhotoError(err instanceof Error ? err.message : 'Gagal memproses foto.');
+    }
+  };
+
+  const handleFetchSingleDriveFilePhoto = async () => {
+    const fileId = extractDriveFileId(formPhotoDriveLink);
+    if (!fileId) {
+      setSinglePhotoError(
+        'Link file Google Drive tidak valid. Contoh: https://drive.google.com/file/d/1AbCd.../view'
+      );
+      return;
+    }
+    setIsFetchingSinglePhoto(true);
+    setSinglePhotoError(null);
+    try {
+      let token = getDriveAccessToken();
+      if (!token) {
+        const authRes = await signInWithGoogleDrive();
+        token = authRes.accessToken;
+      }
+      const dataUrl = await downloadDriveImageAsDataUrl(fileId, token);
+      setFormPhotoUrl(dataUrl);
+      setFormPhotoDriveLink('');
+    } catch (err: unknown) {
+      setSinglePhotoError(
+        err instanceof Error ? err.message : 'Gagal mengambil foto dari link Drive.'
+      );
+    } finally {
+      setIsFetchingSinglePhoto(false);
+    }
   };
 
   const handleSaveStudent = (e: React.FormEvent) => {
@@ -84,6 +160,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
         name: formName.trim(),
         className: formClass.trim(),
         gender: formGender,
+        photoUrl: formPhotoUrl,
       });
     } else {
       onAddStudent({
@@ -92,6 +169,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
         name: formName.trim(),
         className: formClass.trim(),
         gender: formGender,
+        photoUrl: formPhotoUrl,
       });
     }
 
@@ -163,6 +241,15 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
           </button>
 
           <button
+            onClick={() => setIsDrivePhotoModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 rounded-md transition-colors"
+            title="Ambil & cocokkan pas foto siswa dari link folder Google Drive per kelas"
+          >
+            <FolderOpen className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Foto Siswa (Link Drive)</span>
+          </button>
+
+          <button
             onClick={openAddModal}
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors"
           >
@@ -199,9 +286,17 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
 
       {/* Quick sample bar */}
       <div className="bg-white border border-slate-200 rounded-lg p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="text-slate-500">
             Total Siswa Terdaftar: <strong className="text-slate-900 font-mono">{students.length}</strong> orang
+          </span>
+          <span className="text-slate-300">|</span>
+          <span className="text-slate-500">
+            Pas Foto Terpasang:{' '}
+            <strong className="text-indigo-700 font-mono">
+              {students.filter((s) => Boolean(s.photoUrl)).length}
+            </strong>{' '}
+            / {students.length}
           </span>
         </div>
 
@@ -235,6 +330,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
             <thead className="bg-slate-100/75 border-b border-slate-200 text-slate-700 font-semibold">
               <tr>
                 <th className="py-2.5 px-3 w-12 text-center">No</th>
+                <th className="py-2.5 px-3 w-14 text-center">Foto</th>
                 <th className="py-2.5 px-3">NIS</th>
                 <th className="py-2.5 px-3">NISN</th>
                 <th className="py-2.5 px-3">Nama Lengkap</th>
@@ -246,7 +342,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
             <tbody className="divide-y divide-slate-100">
               {students.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500">
+                  <td colSpan={8} className="py-12 text-center text-slate-500">
                     <p className="font-semibold text-slate-700">Belum ada data siswa.</p>
                     <p className="text-2xs text-slate-400 mt-1">
                       Klik "Tambah Siswa", "Impor Excel / CSV", atau "Muat Data Sampel" di atas.
@@ -258,6 +354,24 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                   <tr key={student.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-2 px-3 text-center text-slate-500 font-mono tabular-nums">
                       {idx + 1}
+                    </td>
+                    <td className="py-1.5 px-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(student)}
+                        className="w-8 h-10 mx-auto rounded border border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden hover:border-slate-500 transition-colors"
+                        title={student.photoUrl ? 'Klik untuk ubah foto siswa' : 'Belum ada foto (klik untuk unggah)'}
+                      >
+                        {student.photoUrl ? (
+                          <img
+                            src={student.photoUrl}
+                            alt={student.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="w-4 h-4 text-slate-300" />
+                        )}
+                      </button>
                     </td>
                     <td className="py-2 px-3 font-mono font-semibold text-slate-900">
                       {student.nis}
@@ -394,6 +508,78 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                 </div>
               </div>
 
+              {/* Pas Foto Siswa (Upload lokal atau Link File Google Drive) */}
+              <div className="pt-2 border-t border-slate-200 space-y-2">
+                <label className="block font-semibold text-slate-700">
+                  Pas Foto Siswa 2x3 (Opsional)
+                </label>
+                <input
+                  type="file"
+                  ref={studentPhotoInputRef}
+                  onChange={handleSingleLocalPhotoUpload}
+                  accept="image/*"
+                  className="hidden"
+                />
+                <div className="flex items-start gap-3">
+                  <div className="w-14 h-18 rounded border border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
+                    {formPhotoUrl ? (
+                      <img
+                        src={formPhotoUrl}
+                        alt="Pas Foto"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <ImageIcon className="w-5 h-5 text-slate-300" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => studentPhotoInputRef.current?.click()}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-2xs font-semibold bg-white hover:bg-slate-100 border border-slate-300 rounded text-slate-800"
+                      >
+                        <Upload className="w-3 h-3" />
+                        <span>{formPhotoUrl ? 'Ganti Foto' : 'Unggah File'}</span>
+                      </button>
+                      {formPhotoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setFormPhotoUrl(undefined)}
+                          className="px-2 py-1.5 text-2xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 rounded"
+                        >
+                          Hapus
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="relative flex-1">
+                        <Link2 className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="url"
+                          value={formPhotoDriveLink}
+                          onChange={(e) => setFormPhotoDriveLink(e.target.value)}
+                          placeholder="Atau link file Google Drive..."
+                          className="w-full pl-6 pr-2 py-1 text-2xs border border-slate-300 rounded focus:border-slate-900 focus:outline-none font-mono"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleFetchSingleDriveFilePhoto}
+                        disabled={!formPhotoDriveLink.trim() || isFetchingSinglePhoto}
+                        className="px-2 py-1 text-2xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 rounded shrink-0 flex items-center gap-1"
+                      >
+                        {isFetchingSinglePhoto && <Loader2 className="w-3 h-3 animate-spin" />}
+                        <span>Ambil</span>
+                      </button>
+                    </div>
+                    {singlePhotoError && (
+                      <p className="text-2xs text-rose-600">{singlePhotoError}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
                   type="button"
@@ -413,6 +599,17 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
           </div>
         </div>
       )}
+
+      {/* Per-Class Google Drive Photo Import Modal */}
+      <StudentDrivePhotoModal
+        isOpen={isDrivePhotoModalOpen}
+        onClose={() => setIsDrivePhotoModalOpen(false)}
+        students={students}
+        settings={settings}
+        onUpdateSettings={onUpdateSettings}
+        onApplyStudentPhotos={onApplyStudentPhotos}
+        onClearClassPhotos={onClearClassPhotos}
+      />
 
       {/* Delete All Students Confirmation Modal */}
       {isDeleteAllModalOpen && (
