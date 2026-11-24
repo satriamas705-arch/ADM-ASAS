@@ -105,7 +105,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             Jadwal Pelaksanaan Ujian
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-            <strong className="text-slate-900">{settings.activityName || settings.examTitle}</strong> &middot; Tahun Pelajaran <strong className="text-slate-900 font-mono">{settings.academicYear}</strong> &middot; Jadwal otomatis dicetak pada Kartu Peserta Ujian
+            <strong className="text-slate-900">{settings.activityName || settings.examTitle}</strong> &middot; Tahun Ajaran <strong className="text-slate-900 font-mono">{settings.academicYear}</strong> &middot; Jadwal otomatis dicetak pada Kartu Peserta Ujian
           </p>
         </div>
 
@@ -144,7 +144,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           </span>
           <span className="text-slate-300">|</span>
           <span className="text-slate-600">
-            Tahun Pelajaran: <strong className="text-slate-900 font-mono">{settings.academicYear}</strong>
+            Tahun Ajaran: <strong className="text-slate-900 font-mono">{settings.academicYear}</strong>
           </span>
           <span className="text-slate-300">|</span>
           <span className="text-slate-600">

@@ -388,7 +388,7 @@ export const ParticipantCirculation: React.FC<ParticipantCirculationProps> = ({
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
             Atur, edit, dan terapkan sirkulasi peserta antar ruang &amp; rombongan belajar ke seluruh ruangan &middot;{' '}
-            <strong className="text-slate-800">{settings.activityName || settings.examTitle}</strong> (TP{' '}
+            <strong className="text-slate-800">{settings.activityName || settings.examTitle}</strong> (TA{' '}
             {settings.academicYear})
           </p>
         </div>

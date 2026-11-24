@@ -69,7 +69,7 @@ export const StudentListTable: React.FC<StudentListTableProps> = ({
             Daftar Peserta Ujian
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-            <strong className="text-slate-900">{settings.activityName || settings.examTitle}</strong> &middot; Tahun Pelajaran <strong className="text-slate-900 font-mono">{settings.academicYear}</strong> &middot; Alokasi tempat duduk dan nomor peserta
+            <strong className="text-slate-900">{settings.activityName || settings.examTitle}</strong> &middot; Tahun Ajaran <strong className="text-slate-900 font-mono">{settings.academicYear}</strong> &middot; Alokasi tempat duduk dan nomor peserta
           </p>
         </div>
         <div className="text-xs text-slate-500 font-mono">

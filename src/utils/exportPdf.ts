@@ -32,6 +32,7 @@ import {
   getSessionDisplayLabel,
   getScheduleRoomInvigilators,
   getOrderedClassNames,
+  getSchedulesForStudentCard,
 } from './examDocuments';
 import { getClassColorTheme } from './classColors';
 
@@ -836,7 +837,7 @@ export function exportDoorPosterPdf(
  * Export Student Exam Cards (Kartu Peserta Ujian Lengkap)
  * Layouts 2 cards per page (top & bottom) containing:
  * - Kop Sekolah & Dua Logo
- * - Nama Kegiatan & Tahun Pelajaran
+ * - Nama Kegiatan & Tahun Ajaran
  * - Identitas Peserta Lengkap (NIS, Nama, Kelas, No Meja, Ruang)
  * - Tabel Jadwal Ujian
  * - Kolom TTD / Paraf Pengawas Ruang per Mata Pelajaran
@@ -866,19 +867,6 @@ export function exportExamCardsPdf(
   const topY0 = 9;
   const topY1 = topY0 + cardHeight + 9;
 
-  // Default schedule items if not provided
-  const scheduleList =
-    schedules && schedules.length > 0
-      ? schedules
-      : [
-          { id: '1', day: 'Senin', date: '20 Okt 2026', time: '07.30 - 09.30', subject: 'Bahasa Indonesia', grade: 'Semua' },
-          { id: '2', day: 'Senin', date: '20 Okt 2026', time: '10.00 - 11.30', subject: 'Pendidikan Agama', grade: 'Semua' },
-          { id: '3', day: 'Selasa', date: '21 Okt 2026', time: '07.30 - 09.30', subject: 'Matematika Wajib', grade: 'Semua' },
-          { id: '4', day: 'Selasa', date: '21 Okt 2026', time: '10.00 - 11.30', subject: 'Pendidikan Pancasila', grade: 'Semua' },
-          { id: '5', day: 'Rabu', date: '22 Okt 2026', time: '07.30 - 09.30', subject: 'Bahasa Inggris', grade: 'Semua' },
-          { id: '6', day: 'Rabu', date: '22 Okt 2026', time: '10.00 - 11.30', subject: 'Sejarah Indonesia', grade: 'Semua' },
-        ];
-
   filteredStudents.forEach((student, index) => {
     const cardIndexOnPage = index % 2;
 
@@ -896,15 +884,15 @@ export function exportExamCardsPdf(
 
     // Header Background Strip
     doc.setFillColor(248, 250, 252);
-    doc.rect(x + 0.3, y + 0.3, cardWidth - 0.6, 17.7, 'F');
+    doc.rect(x + 0.3, y + 0.3, cardWidth - 0.6, 17.2, 'F');
     doc.setDrawColor(...LINE_BLACK);
     doc.setLineWidth(0.48);
-    doc.line(x, y + 18, x + cardWidth, y + 18);
+    doc.line(x, y + 17.5, x + cardWidth, y + 17.5);
 
     // Left Logo (Pemda)
     if (settings.logoLeftPemda) {
       try {
-        doc.addImage(settings.logoLeftPemda, 'PNG', x + 3, y + 2, 14, 14);
+        doc.addImage(settings.logoLeftPemda, 'PNG', x + 3, y + 1.8, 13.8, 13.8);
       } catch {
         // fallback
       }
@@ -913,7 +901,7 @@ export function exportExamCardsPdf(
     // Right Logo (School)
     if (settings.logoRightSchool) {
       try {
-        doc.addImage(settings.logoRightSchool, 'PNG', x + cardWidth - 17, y + 2, 14, 14);
+        doc.addImage(settings.logoRightSchool, 'PNG', x + cardWidth - 16.8, y + 1.8, 13.8, 13.8);
       } catch {
         // fallback
       }
@@ -923,43 +911,43 @@ export function exportExamCardsPdf(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(15, 23, 42);
-    doc.text(settings.schoolName.toUpperCase(), x + cardWidth / 2, y + 6, { align: 'center' });
+    doc.text(settings.schoolName.toUpperCase(), x + cardWidth / 2, y + 5.8, { align: 'center' });
 
     doc.setFontSize(10.5);
     doc.setTextColor(0, 0, 0);
-    doc.text('KARTU PESERTA UJIAN', x + cardWidth / 2, y + 11, { align: 'center' });
+    doc.text('KARTU PESERTA UJIAN', x + cardWidth / 2, y + 10.6, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.4);
     doc.setTextColor(51, 65, 85);
     doc.text(
-      `${settings.activityName || settings.examTitle} - TAHUN PELAJARAN ${settings.academicYear}`.toUpperCase(),
+      `${settings.activityName || settings.examTitle} - TAHUN AJARAN ${settings.academicYear}`.toUpperCase(),
       x + cardWidth / 2,
-      y + 15.5,
+      y + 15.1,
       { align: 'center' }
     );
 
     // Photo Box (2x3 format)
-    const photoX = x + 5;
-    const photoY = y + 21.5;
+    const photoX = x + 4.5;
+    const photoY = y + 20.5;
     doc.setDrawColor(...LINE_DARK);
     doc.setLineWidth(0.38);
-    doc.rect(photoX, photoY, 18, 24, 'S');
+    doc.rect(photoX, photoY, 17.5, 23, 'S');
     doc.setFontSize(6.5);
     doc.setTextColor(100, 116, 139);
-    doc.text('Pas Foto', photoX + 9, photoY + 11, { align: 'center' });
-    doc.text('2 x 3', photoX + 9, photoY + 15, { align: 'center' });
+    doc.text('Pas Foto', photoX + 8.75, photoY + 10.5, { align: 'center' });
+    doc.text('2 x 3', photoX + 8.75, photoY + 14.5, { align: 'center' });
 
     // Student Identity Grid (2 Columns next to photo)
-    const idX1 = photoX + 22;
-    const idX2 = idX1 + 22;
-    const idX3 = idX1 + 82;
+    const idX1 = photoX + 21;
+    const idX2 = idX1 + 21;
+    const idX3 = idX1 + 83;
     const idX4 = idX3 + 20;
 
-    let idY = y + 24.5;
+    let idY = y + 23.5;
     const printField = (label: string, val: string, xLabel: number, xVal: number) => {
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.8);
+      doc.setFontSize(7.6);
       doc.setTextColor(51, 65, 85);
       doc.text(label, xLabel, idY);
       doc.text(':', xLabel + 18, idY);
@@ -970,71 +958,171 @@ export function exportExamCardsPdf(
 
     // Row 1
     printField('No. Peserta', student.participantNo || '-', idX1, idX2);
-    printField('Ruang Ujian', `${student.roomName || '-'} (Meja ${String(student.seatNumber || 1).padStart(2, '0')})`, idX3, idX4);
+    printField(
+      'Ruang Ujian',
+      `${student.roomName || '-'} (Meja ${String(student.seatNumber || 1).padStart(2, '0')})`,
+      idX3,
+      idX4
+    );
 
     // Row 2
-    idY += 5.2;
+    idY += 5.0;
     printField('NIS / NISN', `${student.nis} / ${student.nisn || '-'}`, idX1, idX2);
     printField('Kelas', student.className, idX3, idX4);
 
     // Row 3
-    idY += 5.2;
-    printField('Nama Siswa', student.name.length > 28 ? student.name.slice(0, 26) + '..' : student.name, idX1, idX2);
+    idY += 5.0;
+    printField(
+      'Nama Siswa',
+      student.name.length > 29 ? student.name.slice(0, 27) + '..' : student.name,
+      idX1,
+      idX2
+    );
     printField('Kelamin', student.gender === 'L' ? 'Laki-Laki (L)' : 'Perempuan (P)', idX3, idX4);
 
     // Row 4
-    idY += 5.2;
+    idY += 5.0;
     printField('Sesi Ujian', settings.examSession, idX1, idX2);
+    printField('Tanggal', settings.examDate || '-', idX3, idX4);
 
-    // Timetable AutoTable on the card (focused, bold clear table borders, no signature footer)
-    const tableStartY = y + 48.5;
-    const maxScheduleRows = cardHeight >= 134 ? 9 : 8;
-    const visibleSchedules = scheduleList.slice(0, maxScheduleRows);
+    // Synchronized schedule for this student (matching grade/class & chronological day/date/time)
+    const visibleSchedules = getSchedulesForStudentCard(student, schedules);
+    const tableStartY = y + 46.2;
+    const rowCount = visibleSchedules.length;
 
-    const tableBody = visibleSchedules.map((sch, schIdx) => [
-      schIdx + 1,
-      `${sch.day}, ${sch.date}`,
-      sch.time,
-      sch.subject,
-      '', // Blank for invigilator signature paraf
-    ]);
+    if (rowCount <= 15) {
+      // Single clean table with dedicated Hari, Tanggal, Waktu, Mata Pelajaran, Paraf columns
+      let fontSize = 6.9;
+      let headFontSize = 7.0;
+      let cellPadding = { top: 1.4, bottom: 1.4, left: 1.3, right: 1.3 };
+      if (rowCount >= 12) {
+        fontSize = 5.75;
+        headFontSize = 6.1;
+        cellPadding = { top: 0.65, bottom: 0.65, left: 1.0, right: 1.0 };
+      } else if (rowCount >= 9) {
+        fontSize = 6.25;
+        headFontSize = 6.5;
+        cellPadding = { top: 0.95, bottom: 0.95, left: 1.15, right: 1.15 };
+      }
 
-    autoTable(doc, {
-      startY: tableStartY,
-      margin: { left: x + 4.5, right: pageWidth - (x + cardWidth - 4.5) },
-      head: [['No', 'Hari / Tanggal', 'Waktu', 'Mata Pelajaran Ujian', 'Paraf Pengawas']],
-      body: tableBody,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [30, 41, 59],
-        textColor: [255, 255, 255],
-        lineColor: LINE_BLACK,
-        lineWidth: 0.48,
-        fontSize: 7.2,
-        fontStyle: 'bold',
-        halign: 'center',
-        valign: 'middle',
-        cellPadding: 1.5,
-      },
-      styles: {
-        fontSize: 7,
-        cellPadding: 1.55,
-        textColor: [0, 0, 0],
-        lineColor: LINE_BLACK,
-        lineWidth: 0.42,
-        valign: 'middle',
-      },
-      columnStyles: {
-        0: { halign: 'center', cellWidth: 8 },
-        1: { halign: 'left', cellWidth: 33 },
-        2: { halign: 'center', cellWidth: 27 },
-        3: { halign: 'left', fontStyle: 'bold', cellWidth: 'auto' },
-        4: { halign: 'center', cellWidth: 30 }, // Paraf column
-      },
-      alternateRowStyles: {
-        fillColor: [248, 250, 252],
-      },
-    });
+      const tableBody = visibleSchedules.map((sch, schIdx) => [
+        schIdx + 1,
+        sch.day || '-',
+        sch.date || '-',
+        sch.time || '-',
+        sch.subject || '-',
+        '', // Blank for invigilator signature paraf
+      ]);
+
+      autoTable(doc, {
+        startY: tableStartY,
+        margin: { left: x + 4.2, right: pageWidth - (x + cardWidth - 4.2) },
+        pageBreak: 'avoid',
+        head: [['No', 'Hari', 'Tanggal', 'Waktu', 'Mata Pelajaran Ujian', 'Paraf']],
+        body: tableBody,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [30, 41, 59],
+          textColor: [255, 255, 255],
+          lineColor: LINE_BLACK,
+          lineWidth: 0.48,
+          fontSize: headFontSize,
+          fontStyle: 'bold',
+          halign: 'center',
+          valign: 'middle',
+          cellPadding: { top: 1.25, bottom: 1.25, left: 1.1, right: 1.1 },
+        },
+        styles: {
+          fontSize,
+          cellPadding,
+          textColor: [0, 0, 0],
+          lineColor: LINE_BLACK,
+          lineWidth: 0.42,
+          valign: 'middle',
+        },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 7 },
+          1: { halign: 'left', cellWidth: 14 },
+          2: { halign: 'left', cellWidth: 27 },
+          3: { halign: 'center', cellWidth: 27 },
+          4: { halign: 'left', fontStyle: 'bold', cellWidth: 'auto' },
+          5: { halign: 'center', cellWidth: 22 },
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+      });
+    } else {
+      // 16+ subjects: render two side-by-side tables so ALL subjects, hari & tanggal fit on 1 card cleanly
+      const half = Math.ceil(rowCount / 2);
+      const leftItems = visibleSchedules.slice(0, half);
+      const rightItems = visibleSchedules.slice(half);
+      const innerPadX = 4.0;
+      const gapMm = 2.5;
+      const halfTableWidth = (cardWidth - innerPadX * 2 - gapMm) / 2;
+      const compactFont = rowCount > 24 ? 5.2 : 5.6;
+      const compactPad = rowCount > 24
+        ? { top: 0.5, bottom: 0.5, left: 0.7, right: 0.7 }
+        : { top: 0.65, bottom: 0.65, left: 0.85, right: 0.85 };
+
+      const renderHalfTable = (
+        items: ExamScheduleItem[],
+        startNum: number,
+        leftEdge: number,
+        rightEdgeMargin: number
+      ) => {
+        autoTable(doc, {
+          startY: tableStartY,
+          margin: { left: leftEdge, right: rightEdgeMargin },
+          tableWidth: halfTableWidth,
+          pageBreak: 'avoid',
+          head: [['No', 'Hari, Tanggal & Waktu', 'Mata Pelajaran', 'Paraf']],
+          body: items.map((sch, idx) => [
+            startNum + idx,
+            `${sch.day}, ${sch.date}\n${sch.time}`,
+            sch.subject || '-',
+            '',
+          ]),
+          theme: 'grid',
+          headStyles: {
+            fillColor: [30, 41, 59],
+            textColor: [255, 255, 255],
+            lineColor: LINE_BLACK,
+            lineWidth: 0.45,
+            fontSize: 5.9,
+            fontStyle: 'bold',
+            halign: 'center',
+            valign: 'middle',
+            cellPadding: { top: 1.0, bottom: 1.0, left: 0.8, right: 0.8 },
+          },
+          styles: {
+            fontSize: compactFont,
+            cellPadding: compactPad,
+            textColor: [0, 0, 0],
+            lineColor: LINE_BLACK,
+            lineWidth: 0.4,
+            valign: 'middle',
+          },
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 6 },
+            1: { halign: 'left', cellWidth: 31 },
+            2: { halign: 'left', fontStyle: 'bold', cellWidth: 'auto' },
+            3: { halign: 'center', cellWidth: 12 },
+          },
+          alternateRowStyles: {
+            fillColor: [248, 250, 252],
+          },
+        });
+      };
+
+      renderHalfTable(leftItems, 1, x + innerPadX, pageWidth - (x + innerPadX + halfTableWidth));
+      renderHalfTable(
+        rightItems,
+        half + 1,
+        x + innerPadX + halfTableWidth + gapMm,
+        pageWidth - (x + cardWidth - innerPadX)
+      );
+    }
 
     // Dotted cutting line between cards
     if (cardIndexOnPage === 0) {
@@ -1241,7 +1329,7 @@ export function exportDeskCardsPdf(
     const actText = settings.activityName || settings.examTitle;
     doc.text(actText.length > 42 ? actText.slice(0, 40) + '..' : actText, x + 2.8, footerY + 3.5);
     doc.setFont('helvetica', 'bold');
-    doc.text(`TP ${settings.academicYear}`, x + cardW - 2.8, footerY + 3.5, { align: 'right' });
+    doc.text(`TA ${settings.academicYear}`, x + cardW - 2.8, footerY + 3.5, { align: 'right' });
 
     // Body Area
     const bodyTopY = y + headerH + 2.5;
@@ -1350,7 +1438,7 @@ export function exportSchedulePdf(
     doc,
     settings,
     'JADWAL PELAKSANAAN UJIAN',
-    `TAHUN PELAJARAN ${settings.academicYear}`
+    `TAHUN AJARAN ${settings.academicYear}`
   );
 
   // Activity Information Ribbon
@@ -1371,7 +1459,7 @@ export function exportSchedulePdf(
 
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(71, 85, 105);
-  doc.text('Tahun Pelajaran', 18, currentY + 12);
+  doc.text('Tahun Ajaran', 18, currentY + 12);
   doc.text(':', 46, currentY + 12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
@@ -1508,7 +1596,7 @@ export function exportCirculationPdf(
     doc,
     settings,
     'PEMBAGIAN SIRKULASI PESERTA TIAP RUANG DAN KELAS',
-    `${(settings.activityName || settings.examTitle).toUpperCase()} — TAHUN PELAJARAN ${settings.academicYear}`
+    `${(settings.activityName || settings.examTitle).toUpperCase()} — TAHUN AJARAN ${settings.academicYear}`
   );
 
   // Meta Info Bar
@@ -2060,7 +2148,7 @@ function renderHandoverBeritaAcaraPage(
     doc,
     settings,
     titleByMode[directionMode],
-    `${(settings.activityName || settings.examTitle).toUpperCase()} — TAHUN PELAJARAN ${settings.academicYear}`
+    `${(settings.activityName || settings.examTitle).toUpperCase()} — TAHUN AJARAN ${settings.academicYear}`
   );
 
   let curY = headerBottomY - 1;
@@ -2478,7 +2566,7 @@ export function exportDistributionMatrixPdf(
     doc,
     settings,
     'MATRIKS DISTRIBUSI PESERTA TIAP RUANG DAN KELAS',
-    `${(settings.activityName || settings.examTitle).toUpperCase()} — TAHUN PELAJARAN ${settings.academicYear}`
+    `${(settings.activityName || settings.examTitle).toUpperCase()} — TAHUN AJARAN ${settings.academicYear}`
   );
 
   let currentY = headerBottomY + 2;
@@ -2670,7 +2758,7 @@ export function exportInvigilatorSchedulePdf(
     doc,
     settings,
     'DAFTAR TUGAS PENGAWAS RUANG UJIAN',
-    `${(settings.activityName || settings.examTitle).toUpperCase()} — TAHUN PELAJARAN ${settings.academicYear}`
+    `${(settings.activityName || settings.examTitle).toUpperCase()} — TAHUN AJARAN ${settings.academicYear}`
   );
 
   const totalSessionsCount = dayGroups.reduce((acc, dg) => acc + dg.sessions.length, 0);
@@ -2839,7 +2927,7 @@ export function exportInvigilatorAttendancePdf(
       doc,
       settings,
       'DAFTAR HADIR DAN TANDA TANGAN PENGAWAS UJIAN',
-      `${(settings.activityName || settings.examTitle).toUpperCase()} — TAHUN PELAJARAN ${settings.academicYear}`
+      `${(settings.activityName || settings.examTitle).toUpperCase()} — TAHUN AJARAN ${settings.academicYear}`
     );
 
     const currentY = headerBottomY + 2;
@@ -3002,7 +3090,7 @@ export function exportInvigilatorAttendancePdf(
       doc,
       settings,
       'DAFTAR HADIR & TANDA TANGAN PENGAWAS UJIAN',
-      `${(settings.activityName || settings.examTitle).toUpperCase()} — TAHUN PELAJARAN ${settings.academicYear}`
+      `${(settings.activityName || settings.examTitle).toUpperCase()} — TAHUN AJARAN ${settings.academicYear}`
     );
 
     let currentY = headerBottomY + 2;

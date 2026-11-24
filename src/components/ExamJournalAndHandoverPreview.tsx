@@ -989,7 +989,7 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
           {titleMap[directionMode]}
         </h2>
         <p className="text-xs font-semibold text-slate-700">
-          {settings.activityName || settings.examTitle} &middot; TAHUN PELAJARAN {settings.academicYear}
+          {settings.activityName || settings.examTitle} &middot; TAHUN AJARAN {settings.academicYear}
         </p>
         <p className="text-2xs font-mono font-bold text-slate-600 mt-0.5">
           Nomor: {record.documentNumber}

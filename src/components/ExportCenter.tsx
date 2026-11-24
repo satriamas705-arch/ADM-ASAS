@@ -47,6 +47,8 @@ import {
   getOrderedClassNamesInRoom,
   getRoomClassPairs,
 } from '../utils/examDocuments';
+import { ExamBackupData } from '../utils/backupRestore';
+import { BackupRestoreCard } from './BackupRestoreCard';
 
 interface ExportCenterProps {
   students: Student[];
@@ -54,6 +56,7 @@ interface ExportCenterProps {
   settings: ExamSettings;
   schedules?: ExamScheduleItem[];
   onUpdateSettings?: (newSettings: ExamSettings) => void;
+  onRestoreBackup?: (data: ExamBackupData, sourceFormat: 'json' | 'sql') => void;
 }
 
 export const ExportCenter: React.FC<ExportCenterProps> = ({
@@ -62,6 +65,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
   settings,
   schedules = [],
   onUpdateSettings,
+  onRestoreBackup,
 }) => {
   const orderedClasses = useMemo(
     () => getOrderedClassNames(students, settings.customClassOrder),
@@ -422,6 +426,18 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{statusMessage}</span>
         </div>
+      )}
+
+      {/* Backup & Restore Database (JSON & SQL) */}
+      {onRestoreBackup && (
+        <BackupRestoreCard
+          settings={effectiveSettings}
+          rooms={rooms}
+          students={students}
+          schedules={schedules}
+          onRestoreBackup={onRestoreBackup}
+          onNotify={showSuccess}
+        />
       )}
 
       {!isAllocated && (
@@ -985,7 +1001,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
                   Memuat seluruh daftar <strong className="text-slate-900">{schedules.length} mata pelajaran</strong>, hari/tanggal, jam/sesi ujian, dan kolom tanda tangan resmi Kepala Sekolah serta Ketua Panitia Ujian.
                 </p>
                 <p className="text-2xs text-slate-500 font-mono">
-                  {settings.activityName || settings.examTitle} &middot; TP {settings.academicYear}
+                  {settings.activityName || settings.examTitle} &middot; TA {settings.academicYear}
                 </p>
               </div>
             </div>

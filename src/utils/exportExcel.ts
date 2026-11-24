@@ -133,7 +133,7 @@ export function exportAllocationToExcel(
   const invigilatorSheetData: (string | number)[][] = [
     [settings.schoolName],
     [`DAFTAR PENGAWAS RUANG PER HARI & SESI - ${settings.activityName || settings.examTitle}`],
-    [`Tahun Pelajaran: ${settings.academicYear}`],
+    [`Tahun Ajaran: ${settings.academicYear}`],
     [],
     [
       'No',
@@ -172,7 +172,7 @@ export function exportAllocationToExcel(
   const circSheetData: (string | number)[][] = [
     [settings.schoolName],
     [`PEMBAGIAN SIRKULASI PESERTA TIAP RUANG DAN KELAS - ${settings.activityName || settings.examTitle}`],
-    [`Tahun Pelajaran: ${settings.academicYear} | Tanggal: ${settings.examDate}`],
+    [`Tahun Ajaran: ${settings.academicYear} | Tanggal: ${settings.examDate}`],
     [],
     [
       'No',
@@ -429,7 +429,7 @@ export function exportCirculationToExcel(
   const matrixData: (string | number)[][] = [
     [settings.schoolName],
     [`MATRIKS PEMBAGIAN SIRKULASI PESERTA TIAP RUANG DAN KELAS`],
-    [`${settings.activityName || settings.examTitle} | Tahun Pelajaran ${settings.academicYear}`],
+    [`${settings.activityName || settings.examTitle} | Tahun Ajaran ${settings.academicYear}`],
     [],
     [
       'No',
@@ -699,7 +699,7 @@ export function exportInvigilatorsMatrixExcel(
       `TEMPLATE & DAFTAR PENGAWAS RUANG PER HARI & SESI - ${settings.activityName || settings.examTitle}`,
     ],
     [
-      `Tahun Pelajaran: ${settings.academicYear} | Edit nama pengawas di tiap kolom Hari & Sesi lalu klik Impor Excel`,
+      `Tahun Ajaran: ${settings.academicYear} | Edit nama pengawas di tiap kolom Hari & Sesi lalu klik Impor Excel`,
     ],
     [],
     [

@@ -36,7 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
                 SISPRAK RUANG UJIAN
               </span>
               <span className="text-xs text-slate-500 block leading-tight truncate max-w-[200px] sm:max-w-[320px]">
-                {settings.activityName || settings.examTitle} &middot; TP {settings.academicYear}
+                {settings.activityName || settings.examTitle} &middot; TA {settings.academicYear}
               </span>
             </div>
           </div>

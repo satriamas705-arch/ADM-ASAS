@@ -439,7 +439,7 @@ export const DeskCardSheet: React.FC<DeskCardSheetProps> = ({
                         {settings.activityName || settings.examTitle}
                       </span>
                       <span className="font-mono shrink-0 ml-2">
-                        TP {settings.academicYear}
+                        TA {settings.academicYear}
                       </span>
                     </div>
                   </div>

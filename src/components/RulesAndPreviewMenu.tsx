@@ -95,6 +95,7 @@ import {
   getSessionDisplayLabel,
   syncStoredDocumentsWithDailyInvigilators,
   syncStoredDocumentsWithSettings,
+  getSchedulesForStudentCard,
 } from '../utils/examDocuments';
 import {
   JournalControlBar,
@@ -1776,7 +1777,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Tahun Pelajaran (TP) *
+                    Tahun Ajaran (TA) *
                   </label>
                   <input
                     type="text"
@@ -3203,7 +3204,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                                 KARTU PESERTA UJIAN
                               </h2>
                               <p className="text-2xs font-semibold text-slate-700 uppercase">
-                                {settings.activityName || settings.examTitle} - TAHUN PELAJARAN {settings.academicYear}
+                                {settings.activityName || settings.examTitle} - TAHUN AJARAN {settings.academicYear}
                               </p>
                             </div>
 
@@ -3285,6 +3286,14 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                                   {settings.examSession}
                                 </span>
                               </div>
+
+                              <div className="flex items-baseline">
+                                <span className="w-24 text-slate-600 text-2xs">Tanggal Ujian</span>
+                                <span className="text-slate-500 mr-2 text-2xs">:</span>
+                                <span className="text-slate-900 text-2xs font-medium">
+                                  {settings.examDate || '-'}
+                                </span>
+                              </div>
                             </div>
                           </div>
 
@@ -3294,34 +3303,28 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                               <thead className="bg-slate-900 text-white font-semibold">
                                 <tr>
                                   <th className="py-1.5 px-2 w-8 text-center border-b border-r border-slate-700">No</th>
-                                  <th className="py-1.5 px-2 w-32 border-b border-r border-slate-700">Hari / Tanggal</th>
+                                  <th className="py-1.5 px-2 w-20 border-b border-r border-slate-700">Hari</th>
+                                  <th className="py-1.5 px-2 w-32 border-b border-r border-slate-700">Tanggal</th>
                                   <th className="py-1.5 px-2 w-28 text-center border-b border-r border-slate-700">Waktu</th>
                                   <th className="py-1.5 px-2 border-b border-r border-slate-700">Mata Pelajaran Ujian</th>
-                                  <th className="py-1.5 px-2 w-28 text-center bg-slate-800 border-b border-slate-700">
+                                  <th className="py-1.5 px-2 w-24 text-center bg-slate-800 border-b border-slate-700">
                                     Paraf Pengawas
                                   </th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {(schedules.length > 0
-                                  ? schedules.slice(0, 8)
-                                  : [
-                                      { id: '1', day: 'Senin', date: '20 Oktober 2026', time: '07.30 - 09.30', subject: 'Bahasa Indonesia' },
-                                      { id: '2', day: 'Senin', date: '20 Oktober 2026', time: '10.00 - 11.30', subject: 'Pendidikan Agama' },
-                                      { id: '3', day: 'Selasa', date: '21 Oktober 2026', time: '07.30 - 09.30', subject: 'Matematika Wajib' },
-                                      { id: '4', day: 'Selasa', date: '21 Oktober 2026', time: '10.00 - 11.30', subject: 'Pendidikan Pancasila' },
-                                      { id: '5', day: 'Rabu', date: '22 Oktober 2026', time: '07.30 - 09.30', subject: 'Bahasa Inggris' },
-                                      { id: '6', day: 'Rabu', date: '22 Oktober 2026', time: '10.00 - 11.30', subject: 'Sejarah Indonesia' },
-                                    ]
-                                ).map((sch, schIdx) => (
+                                {getSchedulesForStudentCard(cardStudent, schedules).map((sch, schIdx) => (
                                   <tr key={sch.id} className="even:bg-slate-50 border-b border-black last:border-b-0">
                                     <td className="py-1.5 px-2 text-center font-mono font-bold text-slate-900 border-r border-black">
                                       {schIdx + 1}
                                     </td>
-                                    <td className="py-1.5 px-2 font-medium text-black border-r border-black">
-                                      {sch.day}, {sch.date}
+                                    <td className="py-1.5 px-2 font-semibold text-black border-r border-black whitespace-nowrap">
+                                      {sch.day}
                                     </td>
-                                    <td className="py-1.5 px-2 text-center font-mono text-black border-r border-black">
+                                    <td className="py-1.5 px-2 font-medium text-black border-r border-black whitespace-nowrap">
+                                      {sch.date}
+                                    </td>
+                                    <td className="py-1.5 px-2 text-center font-mono text-black border-r border-black whitespace-nowrap">
                                       {sch.time}
                                     </td>
                                     <td className="py-1.5 px-2 font-semibold text-black border-r border-black">

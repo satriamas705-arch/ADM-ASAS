@@ -1,20 +1,30 @@
 import React, { useState } from 'react';
 import { Settings, Save, Check } from 'lucide-react';
-import { ExamSettings } from '../types';
+import { ExamSettings, Room, Student, ExamScheduleItem } from '../types';
 import { extractCityFromAddress } from '../utils/examDocuments';
+import { ExamBackupData } from '../utils/backupRestore';
+import { BackupRestoreCard } from './BackupRestoreCard';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   settings: ExamSettings;
+  rooms?: Room[];
+  students?: Student[];
+  schedules?: ExamScheduleItem[];
   onSave: (newSettings: ExamSettings) => void;
+  onRestoreBackup?: (data: ExamBackupData, sourceFormat: 'json' | 'sql') => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
   settings,
+  rooms = [],
+  students = [],
+  schedules = [],
   onSave,
+  onRestoreBackup,
 }) => {
   const [formData, setFormData] = useState<ExamSettings>({ ...settings });
 
@@ -102,7 +112,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Tahun Pelajaran (TP) *
+                Tahun Ajaran (TA) *
               </label>
               <input
                 type="text"
@@ -246,6 +256,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
           </div>
         </form>
+
+        {onRestoreBackup && (
+          <div className="pt-2 border-t border-slate-200">
+            <BackupRestoreCard
+              compact
+              settings={formData}
+              rooms={rooms}
+              students={students}
+              schedules={schedules}
+              onRestoreBackup={onRestoreBackup}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

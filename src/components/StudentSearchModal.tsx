@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, MapPin, Armchair, CreditCard, User, Building2, CheckCircle2, Download, Calendar, Printer } from 'lucide-react';
 import { Student, Room, ExamSettings, ExamScheduleItem } from '../types';
 import { exportSingleStudentCardPdf } from '../utils/exportPdf';
+import { getSchedulesForStudentCard } from '../utils/examDocuments';
 
 interface StudentSearchModalProps {
   isOpen: boolean;
@@ -105,7 +106,7 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
                     NIS: {matchedStudent.nis}
                   </span>
                   <span className="text-3xs text-slate-400 mt-0.5 block">
-                    TP {settings.academicYear}
+                    TA {settings.academicYear}
                   </span>
                 </div>
               </div>
@@ -182,21 +183,21 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
                           <thead className="bg-slate-900 text-white font-semibold">
                             <tr>
                               <th className="py-1.5 px-2 w-7 text-center border-b border-r border-slate-700">No</th>
+                              <th className="py-1.5 px-2 border-b border-r border-slate-700">Hari &amp; Tanggal</th>
+                              <th className="py-1.5 px-2 w-24 text-center border-b border-r border-slate-700">Waktu</th>
                               <th className="py-1.5 px-2 border-b border-r border-slate-700">Mata Pelajaran</th>
-                              <th className="py-1.5 px-2 w-24 border-b border-r border-slate-700">Hari &amp; Jam</th>
-                              <th className="py-1.5 px-2 w-20 text-center border-b border-slate-700">Paraf Pengawas</th>
+                              <th className="py-1.5 px-2 w-16 text-center border-b border-slate-700">Paraf</th>
                             </tr>
                           </thead>
                           <tbody className="font-mono">
-                            {(schedules.length > 0 ? schedules.slice(0, 6) : [
-                              { id: '1', day: 'Senin', date: '20 Okt', time: '07.30 - 09.30', subject: 'Bahasa Indonesia' },
-                              { id: '2', day: 'Selasa', date: '21 Okt', time: '07.30 - 09.30', subject: 'Matematika Wajib' },
-                              { id: '3', day: 'Rabu', date: '22 Okt', time: '07.30 - 09.30', subject: 'Bahasa Inggris' },
-                            ]).map((sch, i) => (
+                            {getSchedulesForStudentCard(matchedStudent, schedules).map((sch, i) => (
                               <tr key={sch.id} className="hover:bg-slate-50 border-b border-slate-900 last:border-b-0">
                                 <td className="py-1.5 px-2 text-center font-bold text-slate-700 border-r border-slate-900">{i + 1}</td>
+                                <td className="py-1.5 px-2 font-sans font-medium text-slate-900 border-r border-slate-900 whitespace-nowrap">
+                                  {sch.day}, {sch.date}
+                                </td>
+                                <td className="py-1.5 px-2 text-center text-slate-700 text-3xs border-r border-slate-900 whitespace-nowrap">{sch.time}</td>
                                 <td className="py-1.5 px-2 font-sans font-semibold text-slate-950 border-r border-slate-900">{sch.subject}</td>
-                                <td className="py-1.5 px-2 text-slate-700 text-3xs border-r border-slate-900">{sch.day}, {sch.time}</td>
                                 <td className="py-1.5 px-2 text-center">&nbsp;</td>
                               </tr>
                             ))}

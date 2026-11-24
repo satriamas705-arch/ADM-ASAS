@@ -833,4 +833,171 @@ export function buildUniqueInvigilatorsSummary(
   });
 }
 
+const MONTH_INDEX_MAP: Record<string, number> = {
+  januari: 0,
+  jan: 0,
+  februari: 1,
+  feb: 1,
+  pebruari: 1,
+  maret: 2,
+  mar: 2,
+  april: 3,
+  apr: 3,
+  mei: 4,
+  may: 4,
+  juni: 5,
+  jun: 5,
+  juli: 6,
+  jul: 6,
+  agustus: 7,
+  agu: 7,
+  ags: 7,
+  aug: 7,
+  september: 8,
+  sep: 8,
+  sept: 8,
+  oktober: 9,
+  okt: 9,
+  oct: 9,
+  november: 10,
+  nov: 10,
+  nopember: 10,
+  nop: 10,
+  desember: 11,
+  des: 11,
+  dec: 11,
+};
+
+function parseExamDateTimestamp(dateStr?: string): number | null {
+  if (!dateStr) return null;
+  const clean = dateStr.trim().toLowerCase();
+  if (!clean) return null;
+
+  // ISO YYYY-MM-DD
+  const isoMatch = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
+    return Date.UTC(Number(y), Number(m) - 1, Number(d));
+  }
+
+  // DD/MM/YYYY or DD-MM-YYYY
+  const dmyNumMatch = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dmyNumMatch) {
+    const [, d, m, y] = dmyNumMatch;
+    return Date.UTC(Number(y), Number(m) - 1, Number(d));
+  }
+
+  // DD Month YYYY (e.g., "20 Oktober 2026" or "20 Okt 2026")
+  const textMatch = clean.match(/(\d{1,2})\s+([a-z]+)\s*(\d{4})?/);
+  if (textMatch) {
+    const day = Number(textMatch[1]);
+    const monthName = textMatch[2];
+    const year = textMatch[3] ? Number(textMatch[3]) : 2026;
+    const monthIdx = MONTH_INDEX_MAP[monthName];
+    if (monthIdx !== undefined && day >= 1 && day <= 31) {
+      return Date.UTC(year, monthIdx, day);
+    }
+  }
+
+  return null;
+}
+
+function parseStartTimeMinutes(timeStr?: string): number | null {
+  if (!timeStr) return null;
+  const match = timeStr.match(/(\d{1,2})[.:](\d{2})/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function scheduleMatchesStudentClass(
+  scheduleGrade: string | undefined,
+  studentClassName: string | undefined
+): boolean {
+  const gradeRaw = (scheduleGrade || '').trim();
+  const classRaw = (studentClassName || '').trim();
+  if (!gradeRaw || !classRaw) return true;
+
+  const gradeUpper = gradeRaw.toUpperCase();
+  if (
+    gradeUpper.includes('SEMUA') ||
+    gradeUpper.includes('ALL') ||
+    gradeUpper.includes('UMUM') ||
+    gradeUpper === '-'
+  ) {
+    return true;
+  }
+
+  const classUpper = classRaw.toUpperCase();
+  if (gradeUpper === classUpper) return true;
+
+  const cleaned = gradeUpper
+    .replace(/\b(KELAS|TINGKAT|ROMBEL|KLS)\b/g, ' ')
+    .trim();
+  const tokens = cleaned
+    .split(/[,;/&]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  for (const token of tokens) {
+    if (token === classUpper) return true;
+    if (classUpper.startsWith(`${token} `) || classUpper.startsWith(`${token}-`)) {
+      return true;
+    }
+    if (/^\d+$/.test(token) && new RegExp(`^${escapeRegExp(token)}(?:\\D|$)`).test(classUpper)) {
+      return true;
+    }
+    if (new RegExp(`\\b${escapeRegExp(token)}\\b`).test(classUpper)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+const FALLBACK_CARD_SCHEDULES: ExamScheduleItem[] = [
+  { id: '1', day: 'Senin', date: '20 Oktober 2026', time: '07.30 - 09.30 WIB', subject: 'Bahasa Indonesia', grade: 'Semua Kelas' },
+  { id: '2', day: 'Senin', date: '20 Oktober 2026', time: '10.00 - 11.30 WIB', subject: 'Pendidikan Agama', grade: 'Semua Kelas' },
+  { id: '3', day: 'Selasa', date: '21 Oktober 2026', time: '07.30 - 09.30 WIB', subject: 'Matematika Wajib', grade: 'Semua Kelas' },
+  { id: '4', day: 'Selasa', date: '21 Oktober 2026', time: '10.00 - 11.30 WIB', subject: 'Pendidikan Pancasila', grade: 'Semua Kelas' },
+  { id: '5', day: 'Rabu', date: '22 Oktober 2026', time: '07.30 - 09.30 WIB', subject: 'Bahasa Inggris', grade: 'Semua Kelas' },
+  { id: '6', day: 'Rabu', date: '22 Oktober 2026', time: '10.00 - 11.30 WIB', subject: 'Sejarah Indonesia', grade: 'Semua Kelas' },
+];
+
+export function getSchedulesForStudentCard(
+  student: Pick<Student, 'className'> | null | undefined,
+  schedules?: ExamScheduleItem[]
+): ExamScheduleItem[] {
+  const source = schedules && schedules.length > 0 ? schedules : FALLBACK_CARD_SCHEDULES;
+  const filteredByClass = student?.className
+    ? source.filter((item) => scheduleMatchesStudentClass(item.grade, student.className))
+    : source;
+  const activeList = filteredByClass.length > 0 ? filteredByClass : source;
+
+  return activeList
+    .map((item, idx) => ({ item, idx }))
+    .sort((a, b) => {
+      const dateA = parseExamDateTimestamp(a.item.date);
+      const dateB = parseExamDateTimestamp(b.item.date);
+      if (dateA !== null && dateB !== null && dateA !== dateB) {
+        return dateA - dateB;
+      }
+      const sameDayKeyA = getScheduleDayKey(a.item);
+      const sameDayKeyB = getScheduleDayKey(b.item);
+      if (sameDayKeyA === sameDayKeyB) {
+        const timeA = parseStartTimeMinutes(a.item.time);
+        const timeB = parseStartTimeMinutes(b.item.time);
+        if (timeA !== null && timeB !== null && timeA !== timeB) {
+          return timeA - timeB;
+        }
+      }
+      return a.idx - b.idx;
+    })
+    .map((entry) => entry.item);
+}
+
+
 

@@ -16,6 +16,7 @@ import { defaultExamSettings, defaultRooms, sampleStudents, defaultExamSchedule 
 import { allocateStudentsToRooms } from './utils/allocator';
 import { applyCirculationDayToStudents, CirculationPattern } from './utils/circulation';
 import { syncStoredDocumentsWithSettings } from './utils/examDocuments';
+import { ExamBackupData, persistDocumentExtrasFromBackup } from './utils/backupRestore';
 import { Check, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -72,6 +73,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSearchStudent, setActiveSearchStudent] = useState<Student | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [restoreRevision, setRestoreRevision] = useState<number>(0);
 
   // Sync state to LocalStorage
   useEffect(() => {
@@ -109,6 +111,19 @@ export default function App() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleRestoreBackup = (data: ExamBackupData, sourceFormat: 'json' | 'sql') => {
+    persistDocumentExtrasFromBackup(data);
+    setSettings(data.settings);
+    setRooms(data.rooms);
+    setStudents(data.students);
+    setSchedules(data.schedules);
+    setSelectedRoomId(data.rooms[0]?.id || '');
+    setRestoreRevision((prev) => prev + 1);
+    showToast(
+      `Data berhasil dipulihkan dari backup ${sourceFormat.toUpperCase()} (${data.students.length} siswa, ${data.rooms.length} ruang, ${data.schedules.length} jadwal).`
+    );
   };
 
   // Compute allocation summary
@@ -477,6 +492,7 @@ export default function App() {
 
         {activeTab === 'rules' && (
           <RulesAndPreviewMenu
+            key={`rules-${restoreRevision}`}
             settings={settings}
             rooms={rooms}
             students={students}
@@ -495,6 +511,7 @@ export default function App() {
             settings={settings}
             schedules={schedules}
             onUpdateSettings={setSettings}
+            onRestoreBackup={handleRestoreBackup}
           />
         )}
       </main>
@@ -518,6 +535,13 @@ export default function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
+        rooms={rooms}
+        students={students}
+        schedules={schedules}
+        onRestoreBackup={(data, sourceFormat) => {
+          handleRestoreBackup(data, sourceFormat);
+          setIsSettingsOpen(false);
+        }}
         onSave={(newSettings) => {
           syncStoredDocumentsWithSettings(settings, newSettings);
           setSettings(newSettings);

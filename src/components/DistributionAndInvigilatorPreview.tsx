@@ -39,7 +39,7 @@ export const DistributionMatrixSheet: React.FC<DistributionMatrixSheetProps> = (
           MATRIKS DISTRIBUSI PESERTA TIAP RUANG DAN KELAS
         </h2>
         <p className="text-xs font-semibold uppercase text-slate-900">
-          {settings.activityName || settings.examTitle} &mdash; TAHUN PELAJARAN{' '}
+          {settings.activityName || settings.examTitle} &mdash; TAHUN AJARAN{' '}
           {settings.academicYear}
         </p>
       </div>
@@ -331,7 +331,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
             DAFTAR TUGAS PENGAWAS RUANG UJIAN
           </h2>
           <p className="text-xs font-semibold uppercase text-slate-900">
-            {settings.activityName || settings.examTitle} &mdash; TAHUN PELAJARAN{' '}
+            {settings.activityName || settings.examTitle} &mdash; TAHUN AJARAN{' '}
             {settings.academicYear}
           </p>
         </div>
@@ -451,7 +451,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
             DAFTAR HADIR DAN TANDA TANGAN PENGAWAS UJIAN
           </h2>
           <p className="text-xs font-semibold uppercase text-slate-900">
-            {settings.activityName || settings.examTitle} &mdash; TAHUN PELAJARAN{' '}
+            {settings.activityName || settings.examTitle} &mdash; TAHUN AJARAN{' '}
             {settings.academicYear}
           </p>
         </div>
@@ -587,7 +587,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
           DAFTAR HADIR &amp; TANDA TANGAN PENGAWAS UJIAN
         </h2>
         <p className="text-xs font-semibold uppercase text-slate-900">
-          {settings.activityName || settings.examTitle} &mdash; TAHUN PELAJARAN{' '}
+          {settings.activityName || settings.examTitle} &mdash; TAHUN AJARAN{' '}
           {settings.academicYear}
         </p>
       </div>
