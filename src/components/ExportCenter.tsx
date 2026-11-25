@@ -38,7 +38,10 @@ import {
   exportInvigilatorSchedulePdf,
   exportInvigilatorAttendancePdf,
 } from '../utils/exportPdf';
-import { buildClassColorMap } from '../utils/classColors';
+import {
+  getOrderedGradeLevels,
+  buildGradeColorMap,
+} from '../utils/classColors';
 import {
   AttendanceGroupingMode,
   AttendanceTarget,
@@ -101,9 +104,14 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
   const [selectedInvigilatorDayKey, setSelectedInvigilatorDayKey] = useState<string>('ALL');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const classColorMap = useMemo(
-    () => buildClassColorMap(orderedClasses, settings.classColors),
-    [orderedClasses, settings.classColors]
+  const orderedGradeLevels = useMemo(
+    () => getOrderedGradeLevels(students),
+    [students]
+  );
+
+  const gradeColorMap = useMemo(
+    () => buildGradeColorMap(orderedGradeLevels, settings.gradeColors),
+    [orderedGradeLevels, settings.gradeColors]
   );
 
   const [localPaperSize, setLocalPaperSize] = useState<PaperSize>(settings.paperSize || 'a4');
@@ -286,7 +294,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
         cardsPerPage: deskCardsPerPage,
         colorStyle: deskCardColorStyle,
       });
-      showSuccess('Kartu Meja Peserta dengan warna berbeda tiap kelas berhasil diunduh (PDF)!');
+      showSuccess('Kartu Meja Peserta dengan warna berbeda per tingkat kelas berhasil diunduh (PDF)!');
     } catch (e: unknown) {
       showSuccess('Gagal mengekspor Kartu Meja: ' + (e instanceof Error ? e.message : String(e)));
     }
@@ -839,8 +847,28 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
                 </select>
               </div>
 
-              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-slate-600">
-                Format kartu <strong>1,5 spasi</strong> dengan <strong>tabel mapel 2 spasi</strong>, identitas siswa, pas foto 2x3, kolom <strong>paraf pengawas ruang</strong>, serta pengesahan <strong>TTD &amp; Stempel Kepala Sekolah</strong> di bagian kanan bawah kartu.
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-slate-600 space-y-2">
+                <p>
+                  Format kartu <strong>1,5 spasi</strong> dengan <strong>tabel mapel 2 spasi</strong>, identitas siswa, pas foto 2x3, kolom <strong>paraf pengawas ruang</strong>, serta pengesahan <strong>TTD &amp; Stempel Kepala Sekolah</strong>. Warna kartu dibedakan otomatis per <strong>tingkat kelas</strong>.
+                </p>
+                {orderedGradeLevels.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-200">
+                    <span className="text-2xs font-semibold text-slate-500">Kode Warna:</span>
+                    {orderedGradeLevels.map((grade) => {
+                      const theme = gradeColorMap[grade];
+                      if (!theme) return null;
+                      return (
+                        <span
+                          key={grade}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-2xs font-bold ${theme.badgeBgClass} ${theme.badgeTextClass} ${theme.borderClass}`}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${theme.swatchClass}`} />
+                          <span>Tingkat {grade} ({theme.label})</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -869,7 +897,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
                   Kartu Meja Peserta (PDF)
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Label nomor meja siap tempel dengan warna berbeda tiap kelas ({deskCardsPerPage} kartu/hal)
+                  Label nomor meja siap tempel dengan warna berbeda per tingkat kelas ({deskCardsPerPage} kartu/hal)
                 </p>
               </div>
             </div>
@@ -945,21 +973,22 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
                 </div>
               </div>
 
-              {/* Class Color Legend */}
+              {/* Grade-Level Color Legend */}
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 space-y-1.5">
                 <p className="text-2xs font-bold text-slate-700 uppercase tracking-wider">
-                  Warna Otomatis Tiap Kelas:
+                  Warna Otomatis per Tingkat Kelas:
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {orderedClasses.map((cls) => {
-                    const theme = classColorMap[cls];
+                  {orderedGradeLevels.map((grade) => {
+                    const theme = gradeColorMap[grade];
+                    if (!theme) return null;
                     return (
                       <span
-                        key={cls}
+                        key={grade}
                         className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border text-2xs font-bold ${theme.badgeBgClass} ${theme.badgeTextClass} ${theme.borderClass}`}
                       >
                         <span className={`w-2 h-2 rounded-xs ${theme.swatchClass}`} />
-                        <span>{cls}</span>
+                        <span>Tingkat {grade} ({theme.label})</span>
                       </span>
                     );
                   })}

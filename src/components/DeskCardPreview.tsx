@@ -4,8 +4,8 @@ import { ExamSettings, Room, Student } from '../types';
 import { DEFAULT_SCHOOL_LOGO } from '../utils/defaultLogos';
 import {
   CLASS_COLOR_PRESETS,
-  buildClassColorMap,
-  getClassColorTheme,
+  buildGradeColorMap,
+  getGradeLevelColorTheme,
 } from '../utils/classColors';
 import { formatRoomNumberLabel } from '../utils/examDocuments';
 import { getPaperSizeSpec } from '../utils/exportPdf';
@@ -24,9 +24,10 @@ interface DeskCardControlBarProps {
   config: DeskCardConfig;
   onChangeConfig: (next: DeskCardConfig) => void;
   orderedClasses: string[];
+  orderedGradeLevels: string[];
   settings: ExamSettings;
-  onChangeClassColor: (className: string, presetId: string) => void;
-  onResetClassColors: () => void;
+  onChangeGradeColor: (gradeLevel: string, presetId: string) => void;
+  onResetGradeColors: () => void;
   selectedRoom?: Room;
   totalMatchingCards: number;
 }
@@ -35,13 +36,14 @@ export const DeskCardControlBar: React.FC<DeskCardControlBarProps> = ({
   config,
   onChangeConfig,
   orderedClasses,
+  orderedGradeLevels,
   settings,
-  onChangeClassColor,
-  onResetClassColors,
+  onChangeGradeColor,
+  onResetGradeColors,
   selectedRoom,
   totalMatchingCards,
 }) => {
-  const colorMap = buildClassColorMap(orderedClasses, settings.classColors);
+  const colorMap = buildGradeColorMap(orderedGradeLevels, settings.gradeColors);
 
   return (
     <div className="print:hidden bg-white border border-slate-200 rounded-lg p-4 space-y-4">
@@ -50,7 +52,7 @@ export const DeskCardControlBar: React.FC<DeskCardControlBarProps> = ({
           <SlidersHorizontal className="w-4 h-4 text-slate-700 shrink-0" />
           <div>
             <h3 className="text-xs font-bold text-slate-900">
-              Pengaturan Kartu Meja Peserta (Warna Berbeda Tiap Kelas)
+              Pengaturan Kartu Meja Peserta (Warna per Tingkat Kelas)
             </h3>
             <p className="text-2xs text-slate-500">
               Menampilkan{' '}
@@ -185,17 +187,17 @@ export const DeskCardControlBar: React.FC<DeskCardControlBarProps> = ({
         </div>
       </div>
 
-      {/* Per-Class Color Legend & Customizer */}
+      {/* Per-Grade Color Legend & Customizer */}
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-2xs font-bold text-slate-700 uppercase tracking-wider">
             <Palette className="w-3.5 h-3.5 text-slate-600" />
-            <span>Kode Warna Tiap Kelas ({orderedClasses.length} Kelas)</span>
+            <span>Kode Warna per Tingkat Kelas ({orderedGradeLevels.length} Tingkat)</span>
           </div>
 
           <button
             type="button"
-            onClick={onResetClassColors}
+            onClick={onResetGradeColors}
             className="flex items-center gap-1 px-2 py-1 text-2xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded transition-colors"
           >
             <RotateCcw className="w-3 h-3" />
@@ -204,23 +206,23 @@ export const DeskCardControlBar: React.FC<DeskCardControlBarProps> = ({
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-          {orderedClasses.map((cls) => {
-            const theme = colorMap[cls] || getClassColorTheme(cls, orderedClasses, settings.classColors);
+          {orderedGradeLevels.map((grade) => {
+            const theme = colorMap[grade] || getGradeLevelColorTheme(grade, settings.gradeColors);
             return (
               <div
-                key={cls}
+                key={grade}
                 className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md border ${theme.cardBgClass} ${theme.borderClass}`}
               >
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className={`w-3 h-3 rounded-sm shrink-0 ${theme.swatchClass}`} />
                   <span className={`text-xs font-bold truncate ${theme.accentTextClass}`}>
-                    {cls}
+                    Tingkat {grade}
                   </span>
                 </div>
                 <select
-                  aria-label={`Pilih warna kelas ${cls}`}
+                  aria-label={`Pilih warna tingkat ${grade}`}
                   value={theme.id}
-                  onChange={(e) => onChangeClassColor(cls, e.target.value)}
+                  onChange={(e) => onChangeGradeColor(grade, e.target.value)}
                   className="text-2xs font-medium bg-white/90 border border-slate-300 rounded px-1 py-0.5 text-slate-800 focus:outline-none focus:border-slate-900 shrink-0"
                 >
                   {CLASS_COLOR_PRESETS.map((preset) => (
@@ -242,7 +244,6 @@ interface DeskCardSheetProps {
   students: Student[];
   rooms: Room[];
   settings: ExamSettings;
-  orderedClasses: string[];
   cardsPerPage: 8 | 10;
   colorStyle: DeskCardColorStyle;
   scopeLabel?: string;
@@ -252,7 +253,6 @@ export const DeskCardSheet: React.FC<DeskCardSheetProps> = ({
   students,
   rooms,
   settings,
-  orderedClasses,
   cardsPerPage,
   colorStyle,
   scopeLabel,
@@ -293,7 +293,7 @@ export const DeskCardSheet: React.FC<DeskCardSheetProps> = ({
           <span>
             Format Cetak {getPaperSizeSpec(settings.paperSize).shortLabel}:{' '}
             <strong>{cardsPerPage} Kartu Meja / Halaman</strong> (
-            {cardsPerPage === 8 ? '2 Kolom × 4 Baris' : '2 Kolom × 5 Baris'}) &middot; Warna otomatis berbeda tiap kelas
+            {cardsPerPage === 8 ? '2 Kolom × 4 Baris' : '2 Kolom × 5 Baris'}) &middot; Warna otomatis berbeda per tingkat kelas
           </span>
         </div>
         <span className="font-mono text-2xs text-slate-600 tabular-nums">
@@ -320,10 +320,9 @@ export const DeskCardSheet: React.FC<DeskCardSheetProps> = ({
               const room = st.roomId ? roomMap.get(st.roomId) : undefined;
               const roomNumLabel = room ? formatRoomNumberLabel(room) : st.roomName || '-';
               const roomDisplay = room ? `${room.name} (${room.code})` : st.roomName || '-';
-              const theme = getClassColorTheme(
+              const theme = getGradeLevelColorTheme(
                 st.className,
-                orderedClasses,
-                settings.classColors
+                settings.gradeColors
               );
               const isCompact = cardsPerPage === 10;
 

@@ -36,7 +36,11 @@ import {
   getOrderedClassNames,
   getSchedulesForStudentCard,
 } from './examDocuments';
-import { getClassColorTheme } from './classColors';
+import {
+  getClassColorTheme,
+  extractGradeLevel,
+  getGradeLevelColorTheme,
+} from './classColors';
 
 const LINE_BLACK: [number, number, number] = [0, 0, 0];
 const LINE_DARK: [number, number, number] = [15, 23, 42];
@@ -1070,36 +1074,44 @@ export function exportExamCardsPdf(
 
     const y = cardsOnCurrentPage === 0 ? topY0 : topY0 + usedHeightOnCurrentPage + 6;
     const x = marginX;
+    const gradeLevel = extractGradeLevel(student.className);
+    const gradeTheme = getGradeLevelColorTheme(student.className, settings.gradeColors);
 
-    // Card Outer Border (crisp dark border)
-    doc.setDrawColor(...LINE_BLACK);
-    doc.setLineWidth(0.6);
-    doc.rect(x, y, cardWidth, cardHeight, 'S');
+    // Card Soft Pastel Background + Crisp Grade-Colored Outer Border
+    doc.setFillColor(...gradeTheme.cardBgRgb);
+    doc.setDrawColor(...gradeTheme.headerBgRgb);
+    doc.setLineWidth(0.75);
+    doc.rect(x, y, cardWidth, cardHeight, 'FD');
 
-    // Header Background Strip
-    doc.setFillColor(248, 250, 252);
+    // Grade-Colored Header Banner Strip
+    doc.setFillColor(...gradeTheme.headerBgRgb);
     doc.rect(x + 0.3, y + 0.3, cardWidth - 0.6, 16.2, 'F');
-    doc.setDrawColor(...LINE_BLACK);
-    doc.setLineWidth(0.48);
+    doc.setDrawColor(...gradeTheme.headerBgRgb);
+    doc.setLineWidth(0.5);
     doc.line(x, y + 16.5, x + cardWidth, y + 16.5);
 
-    // Left Logo (Pemda) & Right Logo (School)
-    addImageSafe(doc, settings.logoLeftPemda, x + 3, y + 1.5, 13.5, 13.5);
-    addImageSafe(doc, settings.logoRightSchool, x + cardWidth - 16.5, y + 1.5, 13.5, 13.5);
+    // White rounded backing frames so Pemda & School logos stay crisp on colored header
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(x + 2.6, y + 1.2, 14.3, 14.3, 1.2, 1.2, 'F');
+    doc.roundedRect(x + cardWidth - 16.9, y + 1.2, 14.3, 14.3, 1.2, 1.2, 'F');
 
-    // Kop Text
+    // Left Logo (Pemda) & Right Logo (School)
+    addImageSafe(doc, settings.logoLeftPemda, x + 3, y + 1.6, 13.5, 13.5);
+    addImageSafe(doc, settings.logoRightSchool, x + cardWidth - 16.5, y + 1.6, 13.5, 13.5);
+
+    // Kop Text (high contrast white on colored header)
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
-    doc.setTextColor(15, 23, 42);
+    doc.setTextColor(...gradeTheme.headerTextRgb);
     doc.text(settings.schoolName.toUpperCase(), x + cardWidth / 2, y + 5.5, { align: 'center' });
 
     doc.setFontSize(10.5);
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...gradeTheme.headerTextRgb);
     doc.text('KARTU PESERTA UJIAN', x + cardWidth / 2, y + 10.2, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.4);
-    doc.setTextColor(51, 65, 85);
+    doc.setTextColor(...gradeTheme.headerTextRgb);
     doc.text(
       `${settings.activityName || settings.examTitle} - TAHUN AJARAN ${settings.academicYear}`.toUpperCase(),
       x + cardWidth / 2,
@@ -1107,17 +1119,19 @@ export function exportExamCardsPdf(
       { align: 'center' }
     );
 
-    // Photo Box (2x3 format)
+    // Photo Box (2x3 format) with white interior & grade-colored frame
     const photoX = x + 4.5;
     const photoY = y + 19.2;
+    doc.setFillColor(255, 255, 255);
+    doc.rect(photoX, photoY, 17.5, 23, 'F');
     if (student.photoUrl) {
       addImageSafe(doc, student.photoUrl, photoX + 0.35, photoY + 0.35, 16.8, 22.3);
-      doc.setDrawColor(...LINE_DARK);
-      doc.setLineWidth(0.45);
+      doc.setDrawColor(...gradeTheme.headerBgRgb);
+      doc.setLineWidth(0.5);
       doc.rect(photoX, photoY, 17.5, 23, 'S');
     } else {
-      doc.setDrawColor(...LINE_DARK);
-      doc.setLineWidth(0.38);
+      doc.setDrawColor(...gradeTheme.headerBgRgb);
+      doc.setLineWidth(0.45);
       doc.rect(photoX, photoY, 17.5, 23, 'S');
       doc.setFontSize(6.5);
       doc.setTextColor(100, 116, 139);
@@ -1156,6 +1170,21 @@ export function exportExamCardsPdf(
     idY += 6.1;
     printField('NIS / NISN', `${student.nis} / ${student.nisn || '-'}`, idX1, idX2);
     printField('Kelas', student.className, idX3, idX4);
+    // Grade-level pill badge right beside className (if it fits within card right edge)
+    const classValWidth = doc.getTextWidth(student.className || '');
+    const badgeLabel = `TINGKAT ${gradeLevel}`;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.2);
+    const badgeW = doc.getTextWidth(badgeLabel) + 4.2;
+    const badgeX = idX4 + classValWidth + 2.5;
+    if (badgeX + badgeW <= x + cardWidth - 3.5) {
+      doc.setFillColor(...gradeTheme.badgeBgRgb);
+      doc.setDrawColor(...gradeTheme.headerBgRgb);
+      doc.setLineWidth(0.32);
+      doc.roundedRect(badgeX, idY - 3.3, badgeW, 4.3, 0.9, 0.9, 'FD');
+      doc.setTextColor(...gradeTheme.badgeTextRgb);
+      doc.text(badgeLabel, badgeX + badgeW / 2, idY - 0.35, { align: 'center' });
+    }
 
     // Row 3
     idY += 6.1;
@@ -1215,8 +1244,8 @@ export function exportExamCardsPdf(
         body: tableBody,
         theme: 'grid',
         headStyles: {
-          fillColor: [30, 41, 59],
-          textColor: [255, 255, 255],
+          fillColor: gradeTheme.headerBgRgb,
+          textColor: gradeTheme.headerTextRgb,
           lineColor: LINE_BLACK,
           lineWidth: 0.48,
           fontSize: headFontSize,
@@ -1226,6 +1255,7 @@ export function exportExamCardsPdf(
           cellPadding: { top: 1.8, bottom: 1.8, left: 1.2, right: 1.2 },
         },
         styles: {
+          fillColor: [255, 255, 255],
           fontSize,
           cellPadding,
           minCellHeight,
@@ -1243,7 +1273,7 @@ export function exportExamCardsPdf(
           5: { halign: 'center', cellWidth: 22 },
         },
         alternateRowStyles: {
-          fillColor: [248, 250, 252],
+          fillColor: gradeTheme.cardBgRgb,
         },
       });
     } else {
@@ -1281,8 +1311,8 @@ export function exportExamCardsPdf(
           ]),
           theme: 'grid',
           headStyles: {
-            fillColor: [30, 41, 59],
-            textColor: [255, 255, 255],
+            fillColor: gradeTheme.headerBgRgb,
+            textColor: gradeTheme.headerTextRgb,
             lineColor: LINE_BLACK,
             lineWidth: 0.45,
             fontSize: 6.0,
@@ -1292,6 +1322,7 @@ export function exportExamCardsPdf(
             cellPadding: { top: 1.1, bottom: 1.1, left: 0.8, right: 0.8 },
           },
           styles: {
+            fillColor: [255, 255, 255],
             fontSize: compactFont,
             cellPadding: compactPad,
             minCellHeight: compactMinH,
@@ -1307,7 +1338,7 @@ export function exportExamCardsPdf(
             3: { halign: 'center', cellWidth: 12 },
           },
           alternateRowStyles: {
-            fillColor: [248, 250, 252],
+            fillColor: gradeTheme.cardBgRgb,
           },
         });
       };
@@ -1394,7 +1425,7 @@ export function exportSingleStudentCardPdf(
 }
 
 /**
- * Export cuttable Exam Desk Cards (Kartu Meja Peserta) to PDF with distinct colors per class.
+ * Export cuttable Exam Desk Cards (Kartu Meja Peserta) to PDF with distinct colors per grade level (tingkat kelas).
  * Supports 8 cards/page (2x4) or 10 cards/page (2x5) on A4 Portrait.
  */
 export function exportDeskCardsPdf(
@@ -1408,7 +1439,6 @@ export function exportDeskCardsPdf(
     colorStyle?: 'full' | 'header';
   }
 ): void {
-  const orderedClasses = getOrderedClassNames(students, settings.customClassOrder);
   const roomMap = new Map<string, Room>();
   const roomOrderMap = new Map<string, number>();
   rooms.forEach((r, idx) => {
@@ -1483,7 +1513,7 @@ export function exportDeskCardsPdf(
     const x = marginX + col * (cardW + colGap);
     const y = topStartY + row * (cardH + rowGap);
 
-    const theme = getClassColorTheme(student.className, orderedClasses, settings.classColors);
+    const theme = getGradeLevelColorTheme(student.className, settings.gradeColors);
     const room = student.roomId ? roomMap.get(student.roomId) : undefined;
     const roomNumLabel = room ? formatRoomNumberLabel(room) : student.roomName || '-';
     const roomDisplay = room ? `${room.name} (${room.code})` : student.roomName || '-';

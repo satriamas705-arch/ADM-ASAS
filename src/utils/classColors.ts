@@ -333,3 +333,160 @@ export function getClassColorTheme(
   }
   return CLASS_COLOR_PRESETS[hash % CLASS_COLOR_PRESETS.length];
 }
+
+// Canonical preset indices per school grade level so single-card & batch PDFs always match
+const CANONICAL_GRADE_PRESET_INDEX: Record<string, number> = {
+  // SMA/SMK/MA (X, XI, XII / 10, 11, 12)
+  X: 0, // Biru
+  '10': 0,
+  XI: 1, // Hijau
+  '11': 1,
+  XII: 2, // Kuning Emas
+  '12': 2,
+  XIII: 5, // Biru Cyan
+  '13': 5,
+  // SMP/MTs (VII, VIII, IX / 7, 8, 9)
+  VII: 0, // Biru
+  '7': 0,
+  VIII: 1, // Hijau
+  '8': 1,
+  IX: 2, // Kuning Emas
+  '9': 2,
+  // SD/MI (I..VI / 1..6)
+  I: 0, // Biru
+  '1': 0,
+  II: 1, // Hijau
+  '2': 1,
+  III: 2, // Kuning Emas
+  '3': 2,
+  IV: 3, // Merah
+  '4': 3,
+  V: 4, // Ungu
+  '5': 4,
+  VI: 10, // Toska
+  '6': 10,
+};
+
+const GRADE_SORT_RANK: Record<string, number> = {
+  '1': 1,
+  I: 1,
+  '2': 2,
+  II: 2,
+  '3': 3,
+  III: 3,
+  '4': 4,
+  IV: 4,
+  '5': 5,
+  V: 5,
+  '6': 6,
+  VI: 6,
+  '7': 7,
+  VII: 7,
+  '8': 8,
+  VIII: 8,
+  '9': 9,
+  IX: 9,
+  '10': 10,
+  X: 10,
+  '11': 11,
+  XI: 11,
+  '12': 12,
+  XII: 12,
+  '13': 13,
+  XIII: 13,
+};
+
+/**
+ * Extracts the grade level ("tingkat kelas") from a className string.
+ * Examples:
+ * - "X MIPA 1" -> "X"
+ * - "XI IPA 2" -> "XI"
+ * - "XII TKJ 1" -> "XII"
+ * - "Kelas VII A" -> "VII"
+ * - "8B" -> "8"
+ * - "10-MIPA-1" -> "10"
+ */
+export function extractGradeLevel(className?: string): string {
+  const raw = (className || '').trim();
+  if (!raw) return 'Umum';
+
+  // Strip optional leading "Kelas" / "Kls" / "Tingkat" label
+  const stripped = raw.replace(/^(?:kelas|kls|tingkat)\s*[-.:/]?\s*/i, '').trim();
+  const target = stripped || raw;
+
+  // Check longest Roman numerals first (XII before XI/X, VIII before VII/V, etc.)
+  const romanMatch = target.match(
+    /^(XII|XIII|XI|IX|VIII|VII|VI|IV|III|II|X|V|I)(?=$|[\s\-._/()\d]|[A-Za-z](?:$|[\s\-._/\d]))/i
+  );
+  if (romanMatch) {
+    return romanMatch[1].toUpperCase();
+  }
+
+  // Check leading numeric grade (1..13)
+  const numMatch = target.match(/^(1[0-3]|[1-9])(?=$|[\s\-._/()A-Za-z])/);
+  if (numMatch) {
+    return numMatch[1];
+  }
+
+  // Fallback to first token
+  const firstToken = target.split(/[\s\-._/]+/).filter(Boolean)[0];
+  return firstToken ? firstToken.toUpperCase() : 'Umum';
+}
+
+/**
+ * Returns unique grade levels present across students, ordered logically (1..13 / I..XIII then natural).
+ */
+export function getOrderedGradeLevels(
+  students: { className?: string }[]
+): string[] {
+  const seen = new Set<string>();
+  students.forEach((s) => {
+    seen.add(extractGradeLevel(s.className));
+  });
+  return Array.from(seen).sort((a, b) => {
+    const rankA = GRADE_SORT_RANK[a] ?? 999;
+    const rankB = GRADE_SORT_RANK[b] ?? 999;
+    if (rankA !== rankB) return rankA - rankB;
+    return a.localeCompare(b, 'id', { numeric: true, sensitivity: 'base' });
+  });
+}
+
+/**
+ * Gets the deterministic color theme for a student's grade level ("tingkat kelas").
+ * Ensures identical colors in single-card exports, room exports, and preview sheets.
+ */
+export function getGradeLevelColorTheme(
+  classNameOrGrade?: string,
+  customGradeColors?: Record<string, string>
+): ClassColorTheme {
+  const grade = extractGradeLevel(classNameOrGrade);
+  const customId = customGradeColors?.[grade];
+  if (customId && PRESET_BY_ID.has(customId)) {
+    return PRESET_BY_ID.get(customId)!;
+  }
+
+  const canonicalIdx = CANONICAL_GRADE_PRESET_INDEX[grade];
+  if (canonicalIdx !== undefined) {
+    return CLASS_COLOR_PRESETS[canonicalIdx % CLASS_COLOR_PRESETS.length];
+  }
+
+  let hash = 0;
+  for (let i = 0; i < grade.length; i += 1) {
+    hash = (hash * 31 + grade.charCodeAt(i)) >>> 0;
+  }
+  return CLASS_COLOR_PRESETS[hash % CLASS_COLOR_PRESETS.length];
+}
+
+/**
+ * Builds a grade-level -> ClassColorTheme map for all detected grade levels.
+ */
+export function buildGradeColorMap(
+  orderedGrades: string[],
+  customGradeColors?: Record<string, string>
+): Record<string, ClassColorTheme> {
+  const map: Record<string, ClassColorTheme> = {};
+  orderedGrades.forEach((grade) => {
+    map[grade] = getGradeLevelColorTheme(grade, customGradeColors);
+  });
+  return map;
+}

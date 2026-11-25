@@ -51,7 +51,14 @@ import {
   PaperSize,
 } from '../types';
 import { DEFAULT_PEMDA_LOGO, DEFAULT_SCHOOL_LOGO } from '../utils/defaultLogos';
-import { getClassColorTheme } from '../utils/classColors';
+import {
+  CLASS_COLOR_PRESETS,
+  getClassColorTheme,
+  extractGradeLevel,
+  getOrderedGradeLevels,
+  getGradeLevelColorTheme,
+  buildGradeColorMap,
+} from '../utils/classColors';
 import {
   PAPER_SIZE_OPTIONS,
   getPaperSizeSpec,
@@ -323,16 +330,27 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
     colorStyle: 'full',
   });
 
-  const handleChangeClassColor = (className: string, presetId: string) => {
-    const nextClassColors = {
-      ...(settings.classColors || {}),
-      [className]: presetId,
+  // Grade-level card color handlers (Kartu Peserta & Kartu Meja per Tingkat Kelas)
+  const orderedGradeLevels = React.useMemo(
+    () => getOrderedGradeLevels(students),
+    [students]
+  );
+
+  const gradeColorMap = React.useMemo(
+    () => buildGradeColorMap(orderedGradeLevels, settings.gradeColors),
+    [orderedGradeLevels, settings.gradeColors]
+  );
+
+  const handleChangeGradeColor = (gradeLevel: string, presetId: string) => {
+    const nextGradeColors = {
+      ...(settings.gradeColors || {}),
+      [gradeLevel]: presetId,
     };
     const nextSettings: ExamSettings = {
       ...settings,
-      classColors: nextClassColors,
+      gradeColors: nextGradeColors,
     };
-    setFormData((prev) => ({ ...prev, classColors: nextClassColors }));
+    setFormData((prev) => ({ ...prev, gradeColors: nextGradeColors }));
     if (onUpdateSettingsOnly) {
       onUpdateSettingsOnly(nextSettings);
     } else {
@@ -340,18 +358,18 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
     }
   };
 
-  const handleResetClassColors = () => {
+  const handleResetGradeColors = () => {
     const nextSettings: ExamSettings = {
       ...settings,
-      classColors: undefined,
+      gradeColors: undefined,
     };
-    setFormData((prev) => ({ ...prev, classColors: undefined }));
+    setFormData((prev) => ({ ...prev, gradeColors: undefined }));
     if (onUpdateSettingsOnly) {
       onUpdateSettingsOnly(nextSettings);
     } else {
       onUpdateSettings(nextSettings);
     }
-    showFeedback('Warna kartu meja tiap kelas dikembalikan ke palet otomatis.');
+    showFeedback('Warna kartu peserta per tingkat kelas dikembalikan ke palet otomatis.');
   };
 
   // Attendance grouping (Per Ruang / Per Kelas / Per Ruang & Kelas)
@@ -3071,9 +3089,10 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
               config={deskCardConfig}
               onChangeConfig={setDeskCardConfig}
               orderedClasses={orderedClasses}
+              orderedGradeLevels={orderedGradeLevels}
               settings={settings}
-              onChangeClassColor={handleChangeClassColor}
-              onResetClassColors={handleResetClassColors}
+              onChangeGradeColor={handleChangeGradeColor}
+              onResetGradeColors={handleResetGradeColors}
               selectedRoom={selectedRoom}
               totalMatchingCards={deskCardStudents.length}
             />
@@ -3512,33 +3531,100 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
               {/* ======================================================== */}
               {previewDocType === 'card' && (
                 <div className="space-y-6">
-                  {/* Top info badge */}
-                  <div className="print:hidden bg-slate-100 border border-slate-300 rounded p-2.5 text-xs text-slate-700 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="w-4 h-4 text-slate-700" />
-                      <span>
-                        Format Cetak Standar: <strong>2 Kartu per Lembar Kertas {activePaperSpec.shortLabel}</strong> (Siap Potong &amp; Dilaminasi)
-                      </span>
+                  {/* Top info badge + Grade Color Customizer */}
+                  <div className="print:hidden bg-slate-50 border border-slate-300 rounded-lg p-3 text-xs text-slate-700 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="w-4 h-4 text-slate-700" />
+                        <span>
+                          Format Cetak Standar: <strong>2 Kartu per Lembar Kertas {activePaperSpec.shortLabel}</strong> — dibedakan warna per <strong>Tingkat Kelas</strong>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-2xs text-slate-500">
+                          Siswa Terpilih: <strong>{selectedStudent?.name}</strong> (NIS: {selectedStudent?.nis})
+                        </span>
+                        {settings.gradeColors && Object.keys(settings.gradeColors).length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleResetGradeColors}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-3xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded transition-colors"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Reset Warna</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <span className="font-mono text-2xs text-slate-500">
-                      Siswa Terpilih: <strong>{selectedStudent?.name}</strong> (NIS: {selectedStudent?.nis})
-                    </span>
+
+                    {orderedGradeLevels.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200">
+                        <span className="text-2xs font-bold uppercase tracking-wider text-slate-600">
+                          Warna per Tingkat:
+                        </span>
+                        {orderedGradeLevels.map((grade) => {
+                          const theme =
+                            gradeColorMap[grade] ||
+                            getGradeLevelColorTheme(grade, settings.gradeColors);
+                          return (
+                            <div
+                              key={grade}
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white border border-slate-300 shadow-2xs"
+                            >
+                              <span
+                                className={`w-3 h-3 rounded-full shrink-0 ${theme.swatchClass}`}
+                              />
+                              <span className="text-2xs font-bold text-slate-900">
+                                Tingkat {grade}
+                              </span>
+                              <select
+                                value={theme.id}
+                                onChange={(e) => handleChangeGradeColor(grade, e.target.value)}
+                                className="text-2xs font-medium text-slate-700 bg-transparent focus:outline-none cursor-pointer"
+                                title={`Pilih warna kartu untuk Tingkat ${grade}`}
+                              >
+                                {CLASS_COLOR_PRESETS.map((preset) => (
+                                  <option key={preset.id} value={preset.id}>
+                                    {preset.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Render 2 stacked cards as they would physically appear on the sheet */}
+                  {/* Render 2 stacked cards (prefer a student from a different grade level for Card 2 so differences are visible) */}
                   {[
                     selectedStudent,
-                    students.find((s) => s.id !== selectedStudent?.id) || selectedStudent,
+                    students.find(
+                      (s) =>
+                        s.id !== selectedStudent?.id &&
+                        extractGradeLevel(s.className) !==
+                          extractGradeLevel(selectedStudent?.className)
+                    ) ||
+                      students.find((s) => s.id !== selectedStudent?.id) ||
+                      selectedStudent,
                   ].map((cardStudent, cardIdx) => {
                     if (!cardStudent) return null;
+                    const gradeLevel = extractGradeLevel(cardStudent.className);
+                    const gradeTheme =
+                      gradeColorMap[gradeLevel] ||
+                      getGradeLevelColorTheme(cardStudent.className, settings.gradeColors);
                     return (
                       <React.Fragment key={cardIdx}>
-                        {/* The Exam Card Container (1,5 Spasi Kartu + Tabel Mapel 2 Spasi) */}
-                        <div className="border-2 border-black rounded-lg p-5 bg-white shadow-2xs space-y-5">
-                          {/* Card Kop Surat with Dual Logos */}
-                          <div className="flex items-center justify-between gap-3 border-b-2 border-black pb-2.5">
+                        {/* The Exam Card Container (1,5 Spasi Kartu + Tabel Mapel 2 Spasi, Warna per Tingkat Kelas) */}
+                        <div
+                          className={`border-2 ${gradeTheme.borderClass} rounded-lg p-5 ${gradeTheme.cardBgClass} shadow-2xs space-y-5`}
+                        >
+                          {/* Card Kop Surat with Dual Logos (Grade-Colored Header Banner) */}
+                          <div
+                            className={`flex items-center justify-between gap-3 rounded-md px-3.5 py-2.5 ${gradeTheme.headerBgClass} ${gradeTheme.headerTextClass}`}
+                          >
                             {/* Logo Kiri Pemda */}
-                            <div className="w-12 h-12 flex items-center justify-center shrink-0">
+                            <div className="w-12 h-12 bg-white rounded p-1 flex items-center justify-center shrink-0 shadow-2xs">
                               <img
                                 src={settings.logoLeftPemda || DEFAULT_PEMDA_LOGO}
                                 alt="Logo Pemda"
@@ -3548,19 +3634,19 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
 
                             {/* Center Kop Typography */}
                             <div className="flex-1 text-center space-y-0.5">
-                              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                              <h3 className="text-xs font-bold uppercase tracking-wide opacity-95">
                                 {settings.schoolName}
                               </h3>
-                              <h2 className="text-sm font-black text-black uppercase tracking-wider font-serif">
+                              <h2 className="text-sm font-black uppercase tracking-wider font-serif">
                                 KARTU PESERTA UJIAN
                               </h2>
-                              <p className="text-2xs font-semibold text-slate-700 uppercase">
+                              <p className="text-2xs font-semibold uppercase opacity-95">
                                 {settings.activityName || settings.examTitle} - TAHUN AJARAN {settings.academicYear}
                               </p>
                             </div>
 
                             {/* Logo Kanan Sekolah */}
-                            <div className="w-12 h-12 flex items-center justify-center shrink-0">
+                            <div className="w-12 h-12 bg-white rounded p-1 flex items-center justify-center shrink-0 shadow-2xs">
                               <img
                                 src={settings.logoRightSchool || DEFAULT_SCHOOL_LOGO}
                                 alt="Logo Sekolah"
@@ -3572,7 +3658,9 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                           {/* Student Identity Grid & Photo (1.5 spasi) */}
                           <div className="flex gap-4 items-start">
                             {/* 2x3 Photo Box */}
-                            <div className="w-20 h-26 rounded border-2 border-slate-800 bg-slate-50 flex flex-col items-center justify-center text-center overflow-hidden shrink-0">
+                            <div
+                              className={`w-20 h-26 rounded border-2 ${gradeTheme.borderClass} bg-white flex flex-col items-center justify-center text-center overflow-hidden shrink-0`}
+                            >
                               {cardStudent.photoUrl ? (
                                 <img
                                   src={cardStudent.photoUrl}
@@ -3616,11 +3704,16 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                                 </span>
                               </div>
 
-                              <div className="flex items-baseline">
-                                <span className="w-24 text-slate-600 text-2xs">Kelas / Rombel</span>
-                                <span className="text-slate-500 mr-2 text-2xs">:</span>
+                              <div className="flex items-center flex-wrap gap-1.5">
+                                <span className="w-24 text-slate-600 text-2xs shrink-0">Kelas / Rombel</span>
+                                <span className="text-slate-500 mr-0.5 text-2xs">:</span>
                                 <span className="font-semibold text-black text-2xs">
                                   {cardStudent.className}
+                                </span>
+                                <span
+                                  className={`px-1.5 py-0.5 rounded border text-3xs font-bold uppercase ${gradeTheme.badgeBgClass} ${gradeTheme.badgeTextClass} ${gradeTheme.borderClass}`}
+                                >
+                                  Tingkat {gradeLevel}
                                 </span>
                               </div>
 
@@ -3659,23 +3752,26 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                           </div>
 
                           {/* Timetable AutoTable with Bold Table Borders, 2 Spasi & Paraf Pengawas */}
-                          <div className="border-2 border-black rounded overflow-hidden">
+                          <div className="border-2 border-black rounded overflow-hidden bg-white">
                             <table className="w-full text-left text-2xs border-collapse leading-loose">
-                              <thead className="bg-slate-900 text-white font-semibold">
+                              <thead className={`${gradeTheme.headerBgClass} ${gradeTheme.headerTextClass} font-semibold`}>
                                 <tr>
-                                  <th className="py-2.5 px-2 w-8 text-center border-b border-r border-slate-700">No</th>
-                                  <th className="py-2.5 px-2 w-20 border-b border-r border-slate-700">Hari</th>
-                                  <th className="py-2.5 px-2 w-32 border-b border-r border-slate-700">Tanggal</th>
-                                  <th className="py-2.5 px-2 w-28 text-center border-b border-r border-slate-700">Waktu</th>
-                                  <th className="py-2.5 px-2 border-b border-r border-slate-700">Mata Pelajaran Ujian</th>
-                                  <th className="py-2.5 px-2 w-24 text-center bg-slate-800 border-b border-slate-700">
+                                  <th className="py-2.5 px-2 w-8 text-center border-b border-r border-black/30">No</th>
+                                  <th className="py-2.5 px-2 w-20 border-b border-r border-black/30">Hari</th>
+                                  <th className="py-2.5 px-2 w-32 border-b border-r border-black/30">Tanggal</th>
+                                  <th className="py-2.5 px-2 w-28 text-center border-b border-r border-black/30">Waktu</th>
+                                  <th className="py-2.5 px-2 border-b border-r border-black/30">Mata Pelajaran Ujian</th>
+                                  <th className={`py-2.5 px-2 w-24 text-center ${gradeTheme.seatBoxBgClass} border-b border-black/30`}>
                                     Paraf Pengawas
                                   </th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {getSchedulesForStudentCard(cardStudent, schedules).map((sch, schIdx) => (
-                                  <tr key={sch.id} className="even:bg-slate-50 border-b border-black last:border-b-0">
+                                  <tr
+                                    key={sch.id}
+                                    className={`${schIdx % 2 === 0 ? 'bg-white' : gradeTheme.cardBgClass} border-b border-black last:border-b-0`}
+                                  >
                                     <td className="py-3.5 px-2 text-center font-mono font-bold text-slate-900 border-r border-black">
                                       {schIdx + 1}
                                     </td>
@@ -3733,14 +3829,13 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
               )}
 
               {/* ======================================================== */}
-              {/* DOC 4B PREVIEW: KARTU MEJA PESERTA (WARNA PER KELAS)     */}
+              {/* DOC 4B PREVIEW: KARTU MEJA PESERTA (WARNA PER TINGKAT)   */}
               {/* ======================================================== */}
               {previewDocType === 'desk-card' && (
                 <DeskCardSheet
                   students={deskCardStudents}
                   rooms={rooms}
                   settings={settings}
-                  orderedClasses={orderedClasses}
                   cardsPerPage={deskCardConfig.cardsPerPage}
                   colorStyle={deskCardConfig.colorStyle}
                   scopeLabel={

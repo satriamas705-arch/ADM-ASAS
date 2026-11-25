@@ -104,6 +104,9 @@ export interface ExamSettings {
   // Warna Kartu Meja Tiap Kelas (key: className, value: color preset id)
   classColors?: Record<string, string>;
 
+  // Warna Kartu Peserta Ujian per Tingkat Kelas (key: gradeLevel, value: color preset id)
+  gradeColors?: Record<string, string>;
+
   // Upload Tanda Tangan Pejabat & Stempel Sekolah (Data URL gambar)
   headmasterSignature?: string;
   committeeSignature?: string;

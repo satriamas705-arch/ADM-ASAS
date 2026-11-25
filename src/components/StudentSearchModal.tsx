@@ -8,6 +8,7 @@ import {
   getSchedulesForStudentCard,
 } from '../utils/examDocuments';
 import { OfficialSignatureGraphic } from './OfficialSignatureGraphic';
+import { extractGradeLevel, getGradeLevelColorTheme } from '../utils/classColors';
 
 interface StudentSearchModalProps {
   isOpen: boolean;
@@ -43,6 +44,12 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
 
   const room = matchedStudent?.roomId
     ? rooms.find((r) => r.id === matchedStudent.roomId)
+    : null;
+  const matchedGradeLevel = matchedStudent
+    ? extractGradeLevel(matchedStudent.className)
+    : '';
+  const matchedGradeTheme = matchedStudent
+    ? getGradeLevelColorTheme(matchedStudent.className, settings.gradeColors)
     : null;
 
   const handleDownloadCard = () => {
@@ -88,9 +95,13 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
         {matchedStudent ? (
           <div className="space-y-4">
             {/* Visual Card */}
-            <div className="border border-slate-300 rounded-lg overflow-hidden bg-white shadow-xs">
+            <div
+              className={`border-2 ${matchedGradeTheme?.borderClass || 'border-slate-300'} rounded-lg overflow-hidden ${matchedGradeTheme?.cardBgClass || 'bg-white'} shadow-xs`}
+            >
               {/* Card Header with Dual Logos */}
-              <div className="bg-slate-900 text-white p-3.5 flex items-center justify-between gap-3">
+              <div
+                className={`${matchedGradeTheme?.headerBgClass || 'bg-slate-900'} ${matchedGradeTheme?.headerTextClass || 'text-white'} p-3.5 flex items-center justify-between gap-3`}
+              >
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 bg-white rounded p-1 flex items-center justify-center shrink-0">
                     <img
@@ -100,26 +111,26 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
                     />
                   </div>
                   <div>
-                    <span className="text-2xs font-mono uppercase tracking-wider text-slate-300 block">
-                      KARTU PESERTA UJIAN RESMI
+                    <span className="text-2xs font-mono uppercase tracking-wider opacity-90 block">
+                      KARTU PESERTA UJIAN RESMI • TINGKAT {matchedGradeLevel}
                     </span>
-                    <h3 className="text-sm font-bold truncate text-white">{matchedStudent.name}</h3>
+                    <h3 className="text-sm font-bold truncate">{matchedStudent.name}</h3>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-2xs font-mono font-bold px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-200 block">
+                  <span className="text-2xs font-mono font-bold px-2 py-0.5 bg-white/95 rounded text-slate-900 block">
                     NIS: {matchedStudent.nis}
                   </span>
-                  <span className="text-3xs text-slate-400 mt-0.5 block">
+                  <span className="text-3xs opacity-90 mt-0.5 block">
                     TA {settings.academicYear}
                   </span>
                 </div>
               </div>
 
               {/* Sub-header title */}
-              <div className="bg-slate-100 border-b border-slate-200 px-3.5 py-1.5 flex justify-between items-center text-2xs text-slate-700">
+              <div className="bg-white/80 border-b border-slate-200 px-3.5 py-1.5 flex justify-between items-center text-2xs text-slate-700">
                 <span className="font-semibold">{settings.activityName || settings.examTitle}</span>
-                <span className="font-mono text-slate-500">{matchedStudent.participantNo || 'NO. PESERTA BELUM DISET'}</span>
+                <span className="font-mono text-slate-600">{matchedStudent.participantNo || 'NO. PESERTA BELUM DISET'}</span>
               </div>
 
               {/* Card Body (1,5 Spasi Kartu + Tabel Mapel 2 Spasi) */}
@@ -168,9 +179,18 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
                         )}
                       </div>
                       <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5 leading-relaxed text-xs">
-                        <div className="flex justify-between py-0.5">
+                        <div className="flex justify-between items-center py-0.5 gap-1.5">
                           <span className="text-slate-500">Kelas / Rombel:</span>
-                          <span className="font-semibold text-slate-900">{matchedStudent.className}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-900">{matchedStudent.className}</span>
+                            {matchedGradeTheme && (
+                              <span
+                                className={`px-1.5 py-0.5 rounded border text-3xs font-bold uppercase ${matchedGradeTheme.badgeBgClass} ${matchedGradeTheme.badgeTextClass} ${matchedGradeTheme.borderClass}`}
+                              >
+                                Tingkat {matchedGradeLevel}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex justify-between py-0.5">
                           <span className="text-slate-500">Jenis Kelamin:</span>
@@ -206,20 +226,25 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
                         <span className="text-3xs text-slate-400">Wajib diparaf saat ujian berlangsung</span>
                       </div>
 
-                      <div className="border-2 border-slate-900 rounded-md overflow-hidden text-2xs">
+                      <div className="border-2 border-slate-900 rounded-md overflow-hidden text-2xs bg-white">
                         <table className="w-full text-left border-collapse leading-loose">
-                          <thead className="bg-slate-900 text-white font-semibold">
+                          <thead
+                            className={`${matchedGradeTheme?.headerBgClass || 'bg-slate-900'} ${matchedGradeTheme?.headerTextClass || 'text-white'} font-semibold`}
+                          >
                             <tr>
-                              <th className="py-2.5 px-2 w-7 text-center border-b border-r border-slate-700">No</th>
-                              <th className="py-2.5 px-2 border-b border-r border-slate-700">Hari &amp; Tanggal</th>
-                              <th className="py-2.5 px-2 w-24 text-center border-b border-r border-slate-700">Waktu</th>
-                              <th className="py-2.5 px-2 border-b border-r border-slate-700">Mata Pelajaran</th>
-                              <th className="py-2.5 px-2 w-16 text-center border-b border-slate-700">Paraf</th>
+                              <th className="py-2.5 px-2 w-7 text-center border-b border-r border-black/30">No</th>
+                              <th className="py-2.5 px-2 border-b border-r border-black/30">Hari &amp; Tanggal</th>
+                              <th className="py-2.5 px-2 w-24 text-center border-b border-r border-black/30">Waktu</th>
+                              <th className="py-2.5 px-2 border-b border-r border-black/30">Mata Pelajaran</th>
+                              <th className="py-2.5 px-2 w-16 text-center border-b border-black/30">Paraf</th>
                             </tr>
                           </thead>
                           <tbody className="font-mono">
                             {getSchedulesForStudentCard(matchedStudent, schedules).map((sch, i) => (
-                              <tr key={sch.id} className="hover:bg-slate-50 border-b border-slate-900 last:border-b-0">
+                              <tr
+                                key={sch.id}
+                                className={`${i % 2 === 0 ? 'bg-white' : matchedGradeTheme?.cardBgClass || 'bg-slate-50'} border-b border-slate-900 last:border-b-0`}
+                              >
                                 <td className="py-3.5 px-2 text-center font-bold text-slate-700 border-r border-slate-900">{i + 1}</td>
                                 <td className="py-3.5 px-2 font-sans font-medium text-slate-900 border-r border-slate-900 whitespace-nowrap">
                                   {sch.day}, {sch.date}
