@@ -9,9 +9,16 @@ import {
   Check,
   Building,
   Info,
+  LayoutGrid,
+  Printer,
 } from 'lucide-react';
 import { Student, Room, ExamSettings } from '../types';
-import { exportAttendancePdfForRoom, exportDoorPosterPdf } from '../utils/exportPdf';
+import {
+  exportAttendancePdfForRoom,
+  exportDoorPosterPdf,
+  exportSeatingPlanPdf,
+  exportRoomParticipantsPdf,
+} from '../utils/exportPdf';
 import { getClassColorTheme } from '../utils/classColors';
 import { getOrderedClassNames } from '../utils/examDocuments';
 
@@ -22,6 +29,7 @@ interface RoomSeatingMapProps {
   selectedRoomId: string;
   onSelectRoom: (roomId: string) => void;
   onSwapStudents: (studentId1: string, studentId2: string) => void;
+  onOpenPrintPreview?: (docType: 'seating' | 'room-participants', roomId: string) => void;
 }
 
 export const RoomSeatingMap: React.FC<RoomSeatingMapProps> = ({
@@ -31,6 +39,7 @@ export const RoomSeatingMap: React.FC<RoomSeatingMapProps> = ({
   selectedRoomId,
   onSelectRoom,
   onSwapStudents,
+  onOpenPrintPreview,
 }) => {
   const currentRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0];
   const [selectedSeatStudent, setSelectedSeatStudent] = useState<Student | null>(null);
@@ -92,7 +101,23 @@ export const RoomSeatingMap: React.FC<RoomSeatingMapProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => exportSeatingPlanPdf(currentRoom, students, settings)}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-md transition-colors"
+            title="Unduh Denah Tempat Duduk Ruang Ini (PDF)"
+          >
+            <LayoutGrid className="w-3.5 h-3.5 text-slate-500" />
+            <span>Denah (PDF)</span>
+          </button>
+          <button
+            onClick={() => exportRoomParticipantsPdf(currentRoom, students, settings)}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-md transition-colors"
+            title="Unduh Data Peserta Ujian Ruang Ini (PDF)"
+          >
+            <Users className="w-3.5 h-3.5 text-slate-500" />
+            <span>Data Peserta (PDF)</span>
+          </button>
           <button
             onClick={() => exportDoorPosterPdf(currentRoom, students, settings)}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-md transition-colors"
@@ -100,6 +125,16 @@ export const RoomSeatingMap: React.FC<RoomSeatingMapProps> = ({
             <DoorOpen className="w-3.5 h-3.5 text-slate-500" />
             <span>Tempelan Pintu (PDF)</span>
           </button>
+          {onOpenPrintPreview && (
+            <button
+              onClick={() => onOpenPrintPreview('seating', currentRoom.id)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-md transition-colors"
+              title="Pratinjau & Cetak Denah Ruang"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-500" />
+              <span>Cetak</span>
+            </button>
+          )}
           <button
             onClick={() => exportAttendancePdfForRoom(currentRoom, students, settings)}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors"

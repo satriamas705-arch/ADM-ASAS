@@ -1,1 +1,25 @@
 @import "tailwindcss";
+
+@media print {
+  .print-keep-together {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-keep-with-prev {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+
+  .print-keep-with-next {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

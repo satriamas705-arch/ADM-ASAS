@@ -26,7 +26,11 @@ import {
 } from 'lucide-react';
 import { Student, Room, ExamSettings, SortMethod, AllocationSummary } from '../types';
 import { AppTab } from './Header';
-import { exportAttendancePdfForRoom, exportDoorPosterPdf } from '../utils/exportPdf';
+import {
+  exportAttendancePdfForRoom,
+  exportDoorPosterPdf,
+  exportRoomParticipantsPdf,
+} from '../utils/exportPdf';
 import { allocateStudentsToRooms } from '../utils/allocator';
 import {
   ResponsiveContainer,
@@ -1008,7 +1012,15 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex flex-wrap items-center justify-end gap-1">
+                    <button
+                      onClick={() => exportRoomParticipantsPdf(rb.room, students, settings)}
+                      className="px-2 py-1 text-slate-700 hover:bg-slate-100 border border-slate-200 rounded flex items-center gap-1"
+                      title="Unduh Data Peserta Ruang (PDF)"
+                    >
+                      <Users className="w-3 h-3 text-slate-500" />
+                      <span>Data Peserta</span>
+                    </button>
                     <button
                       onClick={() => exportDoorPosterPdf(rb.room, students, settings)}
                       className="px-2 py-1 text-slate-700 hover:bg-slate-100 border border-slate-200 rounded flex items-center gap-1"

@@ -307,8 +307,15 @@ export const ExamAttendanceSheet: React.FC<ExamAttendanceSheetProps> = ({
           name: '',
         }));
 
+  const rowDensityPrintClass =
+    displayRows.length > 26
+      ? 'print:py-0.5 print:leading-tight print:text-[10.5px]'
+      : displayRows.length >= 16
+        ? 'print:py-1 print:leading-snug print:text-[11px]'
+        : 'print:py-2 print:leading-normal';
+
   return (
-    <div className="space-y-4 text-black">
+    <div className="space-y-4 print:space-y-2 text-black">
       {/* Header matching uploaded Daftar Hadir 1 image */}
       <div className="text-center space-y-0.5 leading-tight">
         <h2 className="text-sm font-bold text-black uppercase tracking-tight">
@@ -325,70 +332,76 @@ export const ExamAttendanceSheet: React.FC<ExamAttendanceSheetProps> = ({
         </p>
       </div>
 
-      {/* Metadata lines with underlined values (2 spasi) */}
-      <div className="space-y-3.5 text-xs text-black pt-1.5 pb-2">
-        <div className="flex items-end leading-relaxed">
+      {/* Metadata lines with underlined values */}
+      <div className="space-y-3.5 print:space-y-1.5 text-xs text-black pt-1.5 pb-2 print:pt-0.5 print:pb-1">
+        <div className="flex items-end leading-relaxed print:leading-snug">
           <span className="w-36 shrink-0">Hari, tanggal</span>
-          <span className="w-72 border-b border-black pb-1 font-normal">
+          <span className="w-72 border-b border-black pb-1 print:pb-0.5 font-normal">
             : {config.dayDateText}
           </span>
         </div>
-        <div className="flex items-end leading-relaxed">
+        <div className="flex items-end leading-relaxed print:leading-snug">
           <span className="w-36 shrink-0">Mata Pelajaran</span>
-          <span className="w-72 border-b border-black pb-1 font-normal">
+          <span className="w-72 border-b border-black pb-1 print:pb-0.5 font-normal">
             : {config.subjectText}
           </span>
         </div>
       </div>
 
-      {/* Attendance + Nilai Table (2 spasi) */}
-      <div className="overflow-x-auto">
+      {/* Attendance + Nilai Table */}
+      <div className="overflow-x-auto print:overflow-visible">
         <table className="w-full border-collapse border border-black text-xs text-black">
           <thead>
             <tr className="bg-white font-bold text-center">
-              <th className="border border-black py-2 px-1.5 w-9">No</th>
-              <th className="border border-black py-2 px-2 w-28">No. Peserta</th>
-              <th className="border border-black py-2 px-2">Nama Peserta</th>
-              <th className="border border-black py-2 px-2 w-48">Tanda Tangan</th>
-              <th className="border border-black py-2 px-2 w-20">Nilai</th>
+              <th className="border border-black py-2 print:py-1.5 px-1.5 w-9">No</th>
+              <th className="border border-black py-2 print:py-1.5 px-2 w-28">No. Peserta</th>
+              <th className="border border-black py-2 print:py-1.5 px-2">Nama Peserta</th>
+              <th className="border border-black py-2 print:py-1.5 px-2 w-48">Tanda Tangan</th>
+              <th className="border border-black py-2 print:py-1.5 px-2 w-20">Nilai</th>
             </tr>
           </thead>
           <tbody>
-            {displayRows.map((row) => {
+            {displayRows.map((row, rIdx) => {
               const isOdd = row.no % 2 !== 0;
+              const isNearEnd = rIdx >= displayRows.length - 2;
               return (
-                <tr key={row.no} className="bg-white leading-loose">
-                  <td className="border border-black py-2.5 px-1.5 text-center">
+                <tr
+                  key={row.no}
+                  className={`bg-white leading-loose ${
+                    isNearEnd ? 'print-keep-with-next' : ''
+                  }`}
+                >
+                  <td className={`border border-black py-2.5 ${rowDensityPrintClass} px-1.5 text-center`}>
                     {row.no}
                   </td>
-                  <td className="border border-black py-2.5 px-2 text-center">
+                  <td className={`border border-black py-2.5 ${rowDensityPrintClass} px-2 text-center`}>
                     {row.participantNo}
                   </td>
-                  <td className="border border-black py-2.5 px-2 text-left uppercase">
+                  <td className={`border border-black py-2.5 ${rowDensityPrintClass} px-2 text-left uppercase`}>
                     {row.name}
                   </td>
                   <td
-                    className={`border border-black py-2.5 px-2 ${
+                    className={`border border-black py-2.5 ${rowDensityPrintClass} px-2 ${
                       isOdd ? 'text-left' : 'text-center'
                     }`}
                   >
                     {row.no}
                   </td>
-                  <td className="border border-black py-2.5 px-2 text-center">
+                  <td className={`border border-black py-2.5 ${rowDensityPrintClass} px-2 text-center`}>
                     &nbsp;
                   </td>
                 </tr>
               );
             })}
             {/* Bottom Rata-rata row */}
-            <tr className="bg-white leading-loose">
+            <tr className="bg-white leading-loose print-keep-with-next">
               <td
                 colSpan={4}
-                className="border border-black py-2.5 px-2 text-center font-bold"
+                className={`border border-black py-2.5 ${rowDensityPrintClass} px-2 text-center font-bold`}
               >
                 Rata-rata
               </td>
-              <td className="border border-black py-2.5 px-2 text-center">
+              <td className={`border border-black py-2.5 ${rowDensityPrintClass} px-2 text-center`}>
                 &nbsp;
               </td>
             </tr>
@@ -396,12 +409,12 @@ export const ExamAttendanceSheet: React.FC<ExamAttendanceSheetProps> = ({
         </table>
       </div>
 
-      {/* Bottom Signatures: Left Pengawas, Right City + Date + Guru Mapel (2 spasi) */}
-      <div className="pt-6 grid grid-cols-2 text-xs text-black leading-relaxed">
+      {/* Bottom Signatures: Left Pengawas, Right City + Date + Guru Mapel (kept on same sheet) */}
+      <div className="pt-6 print:pt-3 grid grid-cols-2 text-xs text-black leading-relaxed print:leading-snug print-keep-with-prev">
         <div className="pl-6">
           <p className="invisible">Spacer</p>
           <p>Pengawas</p>
-          <div className="h-16" />
+          <div className="h-16 print:h-11" />
           <p>{invigilatorDisplay}</p>
           {invigilatorNipDisplay && (
             <p className="text-2xs font-mono">NIP. {invigilatorNipDisplay}</p>
@@ -412,7 +425,7 @@ export const ExamAttendanceSheet: React.FC<ExamAttendanceSheetProps> = ({
             {cityLabel}, {dateLine}
           </p>
           <p>Guru Mapel</p>
-          <div className="h-16" />
+          <div className="h-16 print:h-11" />
           <p>{teacherDisplay}</p>
         </div>
       </div>
@@ -522,7 +535,7 @@ export const ExamAttendance2Sheet: React.FC<ExamAttendance2SheetProps> = ({
             ))}
 
             {/* Summary Row 1: Jumlah hadir (thick top border matching screenshot) */}
-            <tr className="bg-white border-t-2 border-black">
+            <tr className="bg-white border-t-2 border-black print-keep-with-next">
               <td
                 colSpan={3}
                 className="border border-black border-t-2 py-1.5 px-2 text-center font-bold"
@@ -540,15 +553,15 @@ export const ExamAttendance2Sheet: React.FC<ExamAttendance2SheetProps> = ({
             </tr>
 
             {/* Summary Row 2: Paraf Pengawas */}
-            <tr className="bg-white">
+            <tr className="bg-white print-keep-with-prev">
               <td
                 colSpan={3}
-                className="border border-black py-3.5 px-2 text-center font-bold align-middle"
+                className="border border-black py-3.5 print:py-2.5 px-2 text-center font-bold align-middle"
               >
                 Paraf Pengawas
               </td>
               {dayGroups.map((dg) => (
-                <td key={dg.dayKey} className="border border-black py-3.5 px-1 text-center">
+                <td key={dg.dayKey} className="border border-black py-3.5 print:py-2.5 px-1 text-center">
                   &nbsp;
                 </td>
               ))}

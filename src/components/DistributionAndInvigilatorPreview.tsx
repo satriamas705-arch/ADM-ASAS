@@ -33,8 +33,10 @@ export const DistributionMatrixSheet: React.FC<DistributionMatrixSheetProps> = (
   const cityLabel = extractCityFromSettings(settings);
   const dateLabel = extractSignatureDateFromSettings(settings);
 
+  const matrixRowPrintClass = matrix.rows.length > 9 ? 'print:py-1' : '';
+
   return (
-    <div className="space-y-4 text-black">
+    <div className="space-y-4 print:space-y-2 text-black">
       {/* Header Title */}
       <div className="text-center space-y-0.5">
         <h2 className="text-sm sm:text-base font-bold uppercase tracking-wide text-black">
@@ -117,14 +119,14 @@ export const DistributionMatrixSheet: React.FC<DistributionMatrixSheetProps> = (
                   : '-';
               return (
                 <tr key={row.room.id} className={idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'}>
-                  <td className="border border-black px-1.5 py-1.5 text-center font-mono tabular-nums">
+                  <td className={`border border-black px-1.5 py-1.5 ${matrixRowPrintClass} text-center font-mono tabular-nums`}>
                     {idx + 1}
                   </td>
-                  <td className="border border-black px-2 py-1.5 text-center font-mono font-bold">
+                  <td className={`border border-black px-2 py-1.5 ${matrixRowPrintClass} text-center font-mono font-bold`}>
                     {row.room.code}
                   </td>
-                  <td className="border border-black px-2 py-1.5 font-bold">{row.room.name}</td>
-                  <td className="border border-black px-2 py-1.5 text-slate-800">
+                  <td className={`border border-black px-2 py-1.5 ${matrixRowPrintClass} font-bold`}>{row.room.name}</td>
+                  <td className={`border border-black px-2 py-1.5 ${matrixRowPrintClass} text-slate-800`}>
                     {row.room.building}
                   </td>
                   {matrix.classes.map((cls) => {
@@ -132,28 +134,28 @@ export const DistributionMatrixSheet: React.FC<DistributionMatrixSheetProps> = (
                     return (
                       <td
                         key={cls}
-                        className="border border-black px-1.5 py-1.5 text-center font-mono tabular-nums font-semibold"
+                        className={`border border-black px-1.5 py-1.5 ${matrixRowPrintClass} text-center font-mono tabular-nums font-semibold`}
                       >
                         {cnt > 0 ? cnt : '-'}
                       </td>
                     );
                   })}
-                  <td className="border border-black px-1.5 py-1.5 text-center font-mono tabular-nums">
+                  <td className={`border border-black px-1.5 py-1.5 ${matrixRowPrintClass} text-center font-mono tabular-nums`}>
                     {row.male}
                   </td>
-                  <td className="border border-black px-1.5 py-1.5 text-center font-mono tabular-nums">
+                  <td className={`border border-black px-1.5 py-1.5 ${matrixRowPrintClass} text-center font-mono tabular-nums`}>
                     {row.female}
                   </td>
-                  <td className="border border-black px-1.5 py-1.5 text-center font-mono tabular-nums font-bold">
+                  <td className={`border border-black px-1.5 py-1.5 ${matrixRowPrintClass} text-center font-mono tabular-nums font-bold`}>
                     {row.total}
                   </td>
-                  <td className="border border-black px-1.5 py-1.5 text-center font-mono tabular-nums">
+                  <td className={`border border-black px-1.5 py-1.5 ${matrixRowPrintClass} text-center font-mono tabular-nums`}>
                     {row.room.capacity}
                   </td>
-                  <td className="border border-black px-1.5 py-1.5 text-center font-mono tabular-nums">
+                  <td className={`border border-black px-1.5 py-1.5 ${matrixRowPrintClass} text-center font-mono tabular-nums`}>
                     {row.remainingSeats}
                   </td>
-                  <td className="border border-black px-2 py-1.5 text-center font-mono tabular-nums whitespace-nowrap">
+                  <td className={`border border-black px-2 py-1.5 ${matrixRowPrintClass} text-center font-mono tabular-nums whitespace-nowrap`}>
                     {pRange}
                   </td>
                 </tr>
@@ -196,14 +198,14 @@ export const DistributionMatrixSheet: React.FC<DistributionMatrixSheetProps> = (
       </div>
 
       {/* Signatures */}
-      <div className="pt-6 grid grid-cols-2 gap-8 text-xs text-center text-black">
+      <div className="pt-6 print:pt-2 grid grid-cols-2 gap-8 text-xs text-center text-black print-keep-with-prev">
         <div>
           <p>Mengetahui,</p>
           <p className="font-semibold">Kepala Sekolah</p>
           <OfficialSignatureGraphic
             signatureUrl={settings.headmasterSignature}
             stampUrl={settings.schoolStamp}
-            heightClass="h-14"
+            heightClass="h-14 print:h-11"
           />
           <p className="font-bold underline">{settings.headmaster}</p>
           <p className="text-2xs font-mono">NIP. {settings.headmasterNip || '-'}</p>
@@ -216,7 +218,7 @@ export const DistributionMatrixSheet: React.FC<DistributionMatrixSheetProps> = (
           <p className="font-semibold">Ketua Panitia Ujian</p>
           <OfficialSignatureGraphic
             signatureUrl={settings.committeeSignature}
-            heightClass="h-14"
+            heightClass="h-14 print:h-11"
           />
           <p className="font-bold underline">{settings.committeeHead}</p>
           <p className="text-2xs font-mono">NIP. {settings.committeeNip || '-'}</p>
@@ -333,8 +335,9 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
   // MODE A: DAFTAR TUGAS PENGAWAS RUANG (RUANG x HARI x SESI)
   if (subMode === 'schedule') {
     const totalSessionsCount = dayGroups.reduce((acc, dg) => acc + dg.sessions.length, 0);
+    const schedRowPrintClass = rooms.length > 8 ? 'print:py-1' : '';
     return (
-      <div className="space-y-4 text-black">
+      <div className="space-y-4 print:space-y-2 text-black">
         <div className="text-center space-y-0.5">
           <h2 className="text-sm sm:text-base font-bold uppercase tracking-wide text-black">
             DAFTAR TUGAS PENGAWAS RUANG UJIAN
@@ -345,12 +348,12 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
           </p>
         </div>
 
-        <div className="border border-black bg-slate-50 px-3 py-2 text-2xs font-semibold text-center text-black">
+        <div className="border border-black bg-slate-50 px-3 py-2 print:py-1 text-2xs font-semibold text-center text-black">
           Jumlah Ruang: {rooms.length} Ruang &nbsp;|&nbsp; Jumlah Hari Ujian: {dayGroups.length}{' '}
           Hari ({totalSessionsCount} Sesi) &nbsp;|&nbsp; Rasio: 1 Pengawas / Ruang / Sesi
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto print:overflow-visible">
           <table className="w-full border-collapse border border-black text-2xs text-black">
             <thead>
               <tr className="bg-slate-800 text-white">
@@ -400,14 +403,14 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
             <tbody>
               {rooms.map((room, idx) => (
                 <tr key={room.id} className={idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'}>
-                  <td className="border border-black px-1.5 py-2 text-center font-mono tabular-nums">
+                  <td className={`border border-black px-1.5 py-2 ${schedRowPrintClass} text-center font-mono tabular-nums`}>
                     {idx + 1}
                   </td>
-                  <td className="border border-black px-2 py-2 text-center font-mono font-bold">
+                  <td className={`border border-black px-2 py-2 ${schedRowPrintClass} text-center font-mono font-bold`}>
                     {room.code}
                   </td>
-                  <td className="border border-black px-2 py-2 font-bold">{room.name}</td>
-                  <td className="border border-black px-2 py-2">{room.building}</td>
+                  <td className={`border border-black px-2 py-2 ${schedRowPrintClass} font-bold`}>{room.name}</td>
+                  <td className={`border border-black px-2 py-2 ${schedRowPrintClass}`}>{room.building}</td>
                   {dayGroups.map((dg) =>
                     dg.sessions.map((sch) => {
                       const invName =
@@ -421,7 +424,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                       return (
                         <td
                           key={`${dg.dayKey}-${sch.id}`}
-                          className="border border-black px-1.5 py-2 text-left"
+                          className={`border border-black px-1.5 py-2 ${schedRowPrintClass} text-left`}
                         >
                           <span className="block">{invName}</span>
                           {invNip && invName !== '-' && (
@@ -439,14 +442,14 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
           </table>
         </div>
 
-        <div className="pt-6 grid grid-cols-2 gap-8 text-xs text-center text-black">
+        <div className="pt-6 print:pt-2 grid grid-cols-2 gap-8 text-xs text-center text-black print-keep-with-prev">
           <div>
             <p>Mengetahui,</p>
             <p className="font-semibold">Kepala Sekolah</p>
             <OfficialSignatureGraphic
               signatureUrl={settings.headmasterSignature}
               stampUrl={settings.schoolStamp}
-              heightClass="h-14"
+              heightClass="h-14 print:h-11"
             />
             <p className="font-bold underline">{settings.headmaster}</p>
             <p className="text-2xs font-mono">NIP. {settings.headmasterNip || '-'}</p>
@@ -459,7 +462,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
             <p className="font-semibold">Ketua Panitia Ujian</p>
             <OfficialSignatureGraphic
               signatureUrl={settings.committeeSignature}
-              heightClass="h-14"
+              heightClass="h-14 print:h-11"
             />
             <p className="font-bold underline">{settings.committeeHead}</p>
             <p className="text-2xs font-mono">NIP. {settings.committeeNip || '-'}</p>
@@ -471,8 +474,9 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
 
   // MODE B: DAFTAR HADIR & TANDA TANGAN PENGAWAS (MULTI-HARI LANDSCAPE MATRIX)
   if (subMode === 'attendance-multi') {
+    const multiRowPrintClass = uniqueInvigilators.length > 8 ? 'print:py-1 print:h-8' : 'print:h-9';
     return (
-      <div className="space-y-4 text-black">
+      <div className="space-y-4 print:space-y-2 text-black">
         <div className="text-center space-y-0.5">
           <h2 className="text-sm sm:text-base font-bold uppercase tracking-wide text-black">
             DAFTAR HADIR DAN TANDA TANGAN PENGAWAS UJIAN
@@ -483,7 +487,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
           </p>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto print:overflow-visible">
           <table className="w-full border-collapse border border-black text-2xs text-black">
             <thead>
               <tr className="bg-slate-800 text-white">
@@ -520,10 +524,10 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
             <tbody>
               {uniqueInvigilators.map((item, idx) => (
                 <tr key={`${item.name}-${idx}`} className="bg-white">
-                  <td className="border border-black px-1.5 py-2 text-center font-mono tabular-nums">
+                  <td className={`border border-black px-1.5 py-2 ${multiRowPrintClass} text-center font-mono tabular-nums`}>
                     {idx + 1}
                   </td>
-                  <td className="border border-black px-2.5 py-2">
+                  <td className={`border border-black px-2.5 py-2 ${multiRowPrintClass}`}>
                     <span className="font-bold block">{item.name}</span>
                     {item.nip && (
                       <span className="text-[10px] font-mono text-slate-600 block">
@@ -537,7 +541,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                       return (
                         <td
                           key={dg.dayKey}
-                          className="border border-black px-2 py-2 h-10 text-center text-slate-400"
+                          className={`border border-black px-2 py-2 h-10 ${multiRowPrintClass} text-center text-slate-400`}
                         >
                           &mdash;
                         </td>
@@ -546,7 +550,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                     return (
                       <td
                         key={dg.dayKey}
-                        className="border border-black px-1.5 py-1 h-10 align-bottom text-right"
+                        className={`border border-black px-1.5 py-1 h-10 ${multiRowPrintClass} align-bottom text-right`}
                       >
                         {!item.isPlaceholder && (
                           <span className="text-[9px] font-mono text-slate-500">
@@ -558,27 +562,27 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                   })}
                 </tr>
               ))}
-              <tr className="border-t-2 border-t-black bg-slate-50 font-bold">
-                <td colSpan={2} className="border border-black px-2 py-2 text-center">
+              <tr className="border-t-2 border-t-black bg-slate-50 font-bold print-keep-with-next">
+                <td colSpan={2} className="border border-black px-2 py-2 print:py-1 text-center">
                   Jumlah Pengawas Hadir
                 </td>
                 {dayGroups.map((dg) => (
-                  <td key={dg.dayKey} className="border border-black px-2 py-2" />
+                  <td key={dg.dayKey} className="border border-black px-2 py-2 print:py-1" />
                 ))}
               </tr>
-              <tr className="bg-white font-bold">
-                <td colSpan={2} className="border border-black px-2 py-3 text-center">
+              <tr className="bg-white font-bold print-keep-with-next">
+                <td colSpan={2} className="border border-black px-2 py-3 print:py-2 text-center">
                   Paraf Ketua Panitia
                 </td>
                 {dayGroups.map((dg) => (
-                  <td key={dg.dayKey} className="border border-black px-2 py-3 h-10" />
+                  <td key={dg.dayKey} className="border border-black px-2 py-3 print:py-2 h-10 print:h-8" />
                 ))}
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div className="pt-5 flex justify-end text-xs text-center text-black pr-8">
+        <div className="pt-5 print:pt-2 flex justify-end text-xs text-center text-black pr-8 print-keep-with-prev">
           <div>
             <p>
               {cityLabel}, {dateLabel}
@@ -587,7 +591,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
             <OfficialSignatureGraphic
               signatureUrl={settings.committeeSignature}
               stampUrl={settings.schoolStamp}
-              heightClass="h-14"
+              heightClass="h-14 print:h-11"
             />
             <p className="font-bold underline">{settings.committeeHead}</p>
             <p className="text-2xs font-mono">NIP. {settings.committeeNip || '-'}</p>
@@ -609,8 +613,10 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
 
   let rowCounter = 0;
 
+  const perDayRowPrintClass = rooms.length * Math.max(1, daySessions.length) > 12 ? 'print:py-1 print:h-8' : 'print:py-1.5';
+
   return (
-    <div className="space-y-4 text-black">
+    <div className="space-y-4 print:space-y-2 text-black">
       <div className="text-center space-y-0.5">
         <h2 className="text-sm sm:text-base font-bold uppercase tracking-wide text-black">
           DAFTAR HADIR &amp; TANDA TANGAN PENGAWAS UJIAN
@@ -622,7 +628,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
       </div>
 
       {/* Metadata Info Box */}
-      <div className="border border-black bg-slate-50 px-3.5 py-2.5 text-xs space-y-1">
+      <div className="border border-black bg-slate-50 px-3.5 py-2.5 print:py-1.5 text-xs space-y-1">
         <div className="flex items-baseline gap-2">
           <span className="w-28 font-semibold text-slate-700 shrink-0">Hari / Tanggal</span>
           <span>:</span>
@@ -641,16 +647,16 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
       <table className="w-full border-collapse border border-black text-xs text-black">
         <thead>
           <tr className="bg-slate-800 text-white">
-            <th className="border border-black px-2 py-2 text-center w-10">No</th>
-            <th className="border border-black px-2 py-2 text-center w-16">Kode</th>
-            <th className="border border-black px-2.5 py-2 text-left w-28">Ruang Ujian</th>
+            <th className="border border-black px-2 py-2 print:py-1.5 text-center w-10">No</th>
+            <th className="border border-black px-2 py-2 print:py-1.5 text-center w-16">Kode</th>
+            <th className="border border-black px-2.5 py-2 print:py-1.5 text-left w-28">Ruang Ujian</th>
             {hasMultipleSessions && (
-              <th className="border border-black px-2 py-2 text-left w-32">Sesi / Mapel</th>
+              <th className="border border-black px-2 py-2 print:py-1.5 text-left w-32">Sesi / Mapel</th>
             )}
-            <th className="border border-black px-2.5 py-2 text-left">Nama Pengawas Ruang</th>
-            <th className="border border-black px-2 py-2 text-center w-20">Jam Hadir</th>
-            <th className="border border-black px-2.5 py-2 text-center w-36">Tanda Tangan</th>
-            <th className="border border-black px-2 py-2 text-center w-14">Ket.</th>
+            <th className="border border-black px-2.5 py-2 print:py-1.5 text-left">Nama Pengawas Ruang</th>
+            <th className="border border-black px-2 py-2 print:py-1.5 text-center w-20">Jam Hadir</th>
+            <th className="border border-black px-2.5 py-2 print:py-1.5 text-center w-36">Tanda Tangan</th>
+            <th className="border border-black px-2 py-2 print:py-1.5 text-center w-14">Ket.</th>
           </tr>
         </thead>
         <tbody>
@@ -661,14 +667,14 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
               const isOdd = no % 2 !== 0;
               return (
                 <tr key={room.id} className="bg-white">
-                  <td className="border border-black px-2 py-2.5 text-center font-mono tabular-nums">
+                  <td className={`border border-black px-2 py-2.5 ${perDayRowPrintClass} text-center font-mono tabular-nums`}>
                     {no}
                   </td>
-                  <td className="border border-black px-2 py-2.5 text-center font-mono font-bold">
+                  <td className={`border border-black px-2 py-2.5 ${perDayRowPrintClass} text-center font-mono font-bold`}>
                     {room.code}
                   </td>
-                  <td className="border border-black px-2.5 py-2.5">{room.name}</td>
-                  <td className="border border-black px-2.5 py-2.5">
+                  <td className={`border border-black px-2.5 py-2.5 ${perDayRowPrintClass}`}>{room.name}</td>
+                  <td className={`border border-black px-2.5 py-2.5 ${perDayRowPrintClass}`}>
                     <span className="font-bold block">{room.invigilator1 || '-'}</span>
                     {room.invigilator1Nip && (
                       <span className="text-[10px] font-mono text-slate-600 block">
@@ -676,15 +682,15 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                       </span>
                     )}
                   </td>
-                  <td className="border border-black px-2 py-2.5 text-center font-mono" />
+                  <td className={`border border-black px-2 py-2.5 ${perDayRowPrintClass} text-center font-mono`} />
                   <td
-                    className={`border border-black px-2.5 py-2.5 h-10 align-middle font-mono text-2xs ${
+                    className={`border border-black px-2.5 py-2.5 h-10 ${perDayRowPrintClass} align-middle font-mono text-2xs ${
                       isOdd ? 'text-left' : 'text-center'
                     }`}
                   >
                     {no}.
                   </td>
-                  <td className="border border-black px-2 py-2.5 text-center" />
+                  <td className={`border border-black px-2 py-2.5 ${perDayRowPrintClass} text-center`} />
                 </tr>
               );
             }
@@ -703,34 +709,34 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
               );
               return (
                 <tr key={`${room.id}-${sch.id}`} className="bg-white">
-                  <td className="border border-black px-2 py-2 text-center font-mono tabular-nums">
+                  <td className={`border border-black px-2 py-2 ${perDayRowPrintClass} text-center font-mono tabular-nums`}>
                     {no}
                   </td>
                   {sIdx === 0 && (
                     <>
                       <td
                         rowSpan={daySessions.length}
-                        className="border border-black px-2 py-2 text-center font-mono font-bold align-middle"
+                        className={`border border-black px-2 py-2 ${perDayRowPrintClass} text-center font-mono font-bold align-middle`}
                       >
                         {room.code}
                       </td>
                       <td
                         rowSpan={daySessions.length}
-                        className="border border-black px-2.5 py-2 align-middle font-semibold"
+                        className={`border border-black px-2.5 py-2 ${perDayRowPrintClass} align-middle font-semibold`}
                       >
                         {room.name}
                       </td>
                     </>
                   )}
                   {hasMultipleSessions && (
-                    <td className="border border-black px-2 py-2 text-2xs leading-tight">
+                    <td className={`border border-black px-2 py-2 ${perDayRowPrintClass} text-2xs leading-tight`}>
                       <span className="font-bold block">{getSessionDisplayLabel(sch, sIdx)}</span>
                       <span className="text-slate-600 block truncate max-w-[125px]">
                         {sch.subject}
                       </span>
                     </td>
                   )}
-                  <td className="border border-black px-2.5 py-2">
+                  <td className={`border border-black px-2.5 py-2 ${perDayRowPrintClass}`}>
                     <span className="font-bold block">{invName}</span>
                     {invNip && invName !== '-' && (
                       <span className="text-[10px] font-mono text-slate-600 block">
@@ -738,15 +744,15 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
                       </span>
                     )}
                   </td>
-                  <td className="border border-black px-2 py-2 text-center font-mono" />
+                  <td className={`border border-black px-2 py-2 ${perDayRowPrintClass} text-center font-mono`} />
                   <td
-                    className={`border border-black px-2.5 py-2 h-10 align-middle font-mono text-2xs ${
+                    className={`border border-black px-2.5 py-2 h-10 ${perDayRowPrintClass} align-middle font-mono text-2xs ${
                       isOdd ? 'text-left' : 'text-center'
                     }`}
                   >
                     {no}.
                   </td>
-                  <td className="border border-black px-2 py-2 text-center" />
+                  <td className={`border border-black px-2 py-2 ${perDayRowPrintClass} text-center`} />
                 </tr>
               );
             });
@@ -754,7 +760,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
         </tbody>
       </table>
 
-      <div className="pt-6 flex justify-end text-xs text-center text-black pr-8">
+      <div className="pt-6 print:pt-2 flex justify-end text-xs text-center text-black pr-8 print-keep-with-prev">
         <div>
           <p>
             {cityLabel}, {(settings.signatureDate || '').trim() || activeDay?.date || dateLabel}
@@ -763,7 +769,7 @@ export const InvigilatorScheduleAndAttendanceSheet: React.FC<
           <OfficialSignatureGraphic
             signatureUrl={settings.committeeSignature}
             stampUrl={settings.schoolStamp}
-            heightClass="h-14"
+            heightClass="h-14 print:h-11"
           />
           <p className="font-bold underline">{settings.committeeHead}</p>
           <p className="text-2xs font-mono">NIP. {settings.committeeNip || '-'}</p>

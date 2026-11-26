@@ -34,6 +34,7 @@ import {
   getSessionDisplayLabel,
   getScheduleRoomInvigilators,
   getOrderedClassNames,
+  getOrderedClassNamesInRoom,
   getSchedulesForStudentCard,
 } from './examDocuments';
 import {
@@ -163,6 +164,98 @@ function renderPdfStampAndSignature(
     }
   }
 }
+
+interface AutoTableDensityPreset {
+  fontSize: number;
+  headFontSize: number;
+  cellPadV: number;
+  headPadV: number;
+  minCellHeight: number;
+  bottomMargin?: number;
+}
+
+/**
+ * Renders an autoTable such that any trailing block (summary strip + signature block)
+ * of height `trailingHeightMm` stays on the same page as the table (ideally fitting
+ * everything on 1 page by tightening vertical density, and on genuinely multi-page
+ * tables ensuring the trailing signature block is never orphaned alone on a blank page).
+ */
+function renderAutoTableWithSignature(
+  doc: jsPDF,
+  orientation: 'portrait' | 'landscape',
+  settings: ExamSettings,
+  startY: number,
+  trailingHeightMm: number,
+  presets: AutoTableDensityPreset[],
+  buildTableConfig: (
+    preset: AutoTableDensityPreset,
+    targetDoc: jsPDF
+  ) => Parameters<typeof autoTable>[1]
+): number {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const minSafeBottomMargin = 6;
+
+  const measurePreset = (preset: AutoTableDensityPreset) => {
+    const scratch = createPdfDoc(orientation, settings);
+    const cfg = buildTableConfig(preset, scratch);
+    autoTable(scratch, {
+      ...cfg,
+      didDrawCell: undefined,
+      startY,
+    });
+    const pages = scratch.getNumberOfPages();
+    const finalY =
+      (scratch as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ??
+      startY + 40;
+    return { pages, finalY };
+  };
+
+  let chosenPreset: AutoTableDensityPreset | null = null;
+  let lastMeasurement = { pages: 1, finalY: startY };
+
+  for (let i = 0; i < presets.length; i++) {
+    const preset = presets[i];
+    const m = measurePreset(preset);
+    lastMeasurement = m;
+    if (m.pages === 1 && m.finalY + trailingHeightMm <= pageHeight - minSafeBottomMargin) {
+      chosenPreset = preset;
+      break;
+    }
+  }
+
+  if (!chosenPreset) {
+    const compactPreset = presets[presets.length - 1];
+    if (lastMeasurement.finalY + trailingHeightMm <= pageHeight - minSafeBottomMargin) {
+      chosenPreset = compactPreset;
+    } else {
+      const reservedBottom = Math.min(
+        Math.max(compactPreset.bottomMargin ?? 12, trailingHeightMm + 7),
+        Math.floor(pageHeight * 0.44)
+      );
+      const paddedPreset: AutoTableDensityPreset = {
+        ...compactPreset,
+        bottomMargin: reservedBottom,
+      };
+      const paddedM = measurePreset(paddedPreset);
+      chosenPreset =
+        paddedM.finalY + trailingHeightMm <= pageHeight - minSafeBottomMargin
+          ? paddedPreset
+          : compactPreset;
+    }
+  }
+
+  const finalConfig = buildTableConfig(chosenPreset, doc);
+  autoTable(doc, {
+    ...finalConfig,
+    startY,
+  });
+
+  return (
+    (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ??
+    startY + 40
+  );
+}
+
 
 /**
  * Creates official header (Kop Surat) on jsPDF document
@@ -363,47 +456,57 @@ function renderAttendancePage(
     '',
   ]);
 
-  autoTable(doc, {
-    startY: 53,
-    margin: { left: 14, right: 14 },
-    head: [['No', 'No. Peserta', 'Nama Peserta', 'Tanda Tangan', 'Nilai']],
-    body: bodyRows,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [255, 255, 255],
-      textColor: [0, 0, 0],
-      lineColor: LINE_BLACK,
-      lineWidth: HEAD_LINE_WIDTH,
-      fontSize: 8.8,
-      fontStyle: 'bold',
-      halign: 'center',
-      valign: 'middle',
-      cellPadding: { top: 2.8, bottom: 2.8, left: 2, right: 2 },
-    },
-    styles: {
-      fontSize: 8.5,
-      cellPadding: { top: 3.1, bottom: 3.1, left: 2, right: 2 },
-      minCellHeight: 9.8,
-      textColor: [0, 0, 0],
-      lineColor: LINE_BLACK,
-      lineWidth: GRID_LINE_WIDTH,
-      valign: 'middle',
-      fillColor: [255, 255, 255],
-    },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 11 },
-      1: { halign: 'center', cellWidth: 28 },
-      2: { halign: 'left', cellWidth: 'auto' },
-      3: { halign: 'left', cellWidth: 48 },
-      4: { halign: 'center', cellWidth: 22 },
-    },
-  });
+  const finalY = renderAutoTableWithSignature(
+    doc,
+    'portrait',
+    settings,
+    53,
+    41,
+    [
+      { fontSize: 8.5, headFontSize: 8.8, cellPadV: 3.1, headPadV: 2.8, minCellHeight: 9.8, bottomMargin: 10 },
+      { fontSize: 8.2, headFontSize: 8.4, cellPadV: 2.0, headPadV: 2.2, minCellHeight: 7.4, bottomMargin: 8 },
+      { fontSize: 7.6, headFontSize: 8.0, cellPadV: 1.3, headPadV: 1.7, minCellHeight: 6.0, bottomMargin: 7 },
+      { fontSize: 7.0, headFontSize: 7.5, cellPadV: 0.9, headPadV: 1.4, minCellHeight: 5.1, bottomMargin: 6 },
+    ],
+    (preset) => ({
+      margin: { top: 14, left: 14, right: 14, bottom: preset.bottomMargin ?? 10 },
+      head: [['No', 'No. Peserta', 'Nama Peserta', 'Tanda Tangan', 'Nilai']],
+      body: bodyRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
+        lineColor: LINE_BLACK,
+        lineWidth: HEAD_LINE_WIDTH,
+        fontSize: preset.headFontSize,
+        fontStyle: 'bold',
+        halign: 'center',
+        valign: 'middle',
+        cellPadding: { top: preset.headPadV, bottom: preset.headPadV, left: 2, right: 2 },
+      },
+      styles: {
+        fontSize: preset.fontSize,
+        cellPadding: { top: preset.cellPadV, bottom: preset.cellPadV, left: 2, right: 2 },
+        minCellHeight: preset.minCellHeight,
+        textColor: [0, 0, 0],
+        lineColor: LINE_BLACK,
+        lineWidth: GRID_LINE_WIDTH,
+        valign: 'middle',
+        fillColor: [255, 255, 255],
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 11 },
+        1: { halign: 'center', cellWidth: 28 },
+        2: { halign: 'left', cellWidth: 'auto' },
+        3: { halign: 'left', cellWidth: 48 },
+        4: { halign: 'center', cellWidth: 22 },
+      },
+    })
+  );
 
-  // Bottom Signature Block: Left Pengawas, Right City/Date + Guru Mapel (2-spasi spacing)
-  const finalY =
-    (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || 220;
-  let sigY = finalY + 11;
-  if (sigY + 34 > pageHeight) {
+  // Bottom Signature Block: Left Pengawas, Right City/Date + Guru Mapel
+  let sigY = finalY + (finalY + 41 > pageHeight - 4 ? 7 : 9);
+  if (sigY + 32 > pageHeight - 3) {
     doc.addPage();
     sigY = 25;
   }
@@ -1009,6 +1112,645 @@ export function exportDoorPosterPdf(
   );
 
   doc.save(`Tempelan_Pintu_${room.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`);
+}
+
+function fitSingleLineText(doc: jsPDF, text: string, maxWidthMm: number): string {
+  if (!text) return '';
+  if (doc.getTextWidth(text) <= maxWidthMm) return text;
+  let clipped = text;
+  while (clipped.length > 1 && doc.getTextWidth(clipped + '..') > maxWidthMm) {
+    clipped = clipped.slice(0, -1);
+  }
+  return clipped + '..';
+}
+
+export interface SeatingPlanPdfOptions {
+  invigilatorName?: string;
+  invigilatorNip?: string;
+  daySessionLabel?: string;
+}
+
+function renderSeatingPlanPage(
+  doc: jsPDF,
+  room: Room,
+  students: Student[],
+  settings: ExamSettings,
+  orderedClasses: string[],
+  options?: SeatingPlanPdfOptions
+): void {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 12;
+  const contentWidth = pageWidth - marginX * 2;
+
+  const roomStudents = students
+    .filter((s) => s.roomId === room.id)
+    .sort((a, b) => (a.seatNumber || 0) - (b.seatNumber || 0));
+  const studentBySeat = new Map<number, Student>();
+  roomStudents.forEach((s) => {
+    if (s.seatNumber) studentBySeat.set(s.seatNumber, s);
+  });
+
+  const columns = Math.max(2, Math.min(6, room.columns || 4));
+  const capacity = Math.max(1, room.capacity);
+  const rows = Math.ceil(capacity / columns);
+
+  const curY = renderLetterhead(
+    doc,
+    settings,
+    'DENAH TATA LETAK TEMPAT DUDUK PESERTA',
+    `${room.name.toUpperCase()} (${room.code}) - ${room.building} | ${(settings.activityName || settings.examTitle).toUpperCase()} (${settings.academicYear})`
+  );
+
+  // Room Summary Ribbon
+  const ribbonY = curY - 2;
+  const ribbonH = 6.2;
+  doc.setFillColor(241, 245, 249);
+  doc.setDrawColor(...BOX_BORDER_DARK);
+  doc.setLineWidth(0.35);
+  doc.rect(marginX, ribbonY, contentWidth, ribbonH, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.4);
+  doc.setTextColor(30, 41, 59);
+  const leftSummary = `Kapasitas: ${capacity} Kursi (${columns} Kolom)  |  Terisi: ${roomStudents.length} Siswa  |  Kosong: ${Math.max(0, capacity - roomStudents.length)} Meja`;
+  doc.text(leftSummary, marginX + 3, ribbonY + 4.1);
+
+  const nisList = roomStudents.map((s) => s.nis).filter(Boolean).sort();
+  const nisRange = nisList.length > 0 ? `${nisList[0]} - ${nisList[nisList.length - 1]}` : '-';
+  const rightSummary = options?.daySessionLabel
+    ? `${options.daySessionLabel} | NIS: ${nisRange}`
+    : `Rentang NIS: ${nisRange}`;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.0);
+  doc.text(
+    fitSingleLineText(doc, rightSummary, contentWidth * 0.45),
+    pageWidth - marginX - 3,
+    ribbonY + 4.1,
+    { align: 'right' }
+  );
+
+  // Blackboard Banner
+  const boardY = ribbonY + ribbonH + 2.2;
+  const boardH = 5.2;
+  doc.setFillColor(30, 41, 59);
+  doc.roundedRect(marginX, boardY, contentWidth, boardH, 0.8, 0.8, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.2);
+  doc.setTextColor(255, 255, 255);
+  doc.text('[ PAPAN TULIS DEPAN KELAS / ARAH DEPAN ]', pageWidth / 2, boardY + 3.6, {
+    align: 'center',
+  });
+
+  // Invigilator Desk Box
+  const invName = options?.invigilatorName?.trim() || room.invigilator1 || '-';
+  const invNip =
+    options?.invigilatorNip !== undefined ? options.invigilatorNip.trim() : room.invigilator1Nip || '';
+  const deskY = boardY + boardH + 1.8;
+  const deskW = 68;
+  const deskH = invNip ? 9.5 : 7.4;
+  doc.setFillColor(255, 251, 235);
+  doc.setDrawColor(217, 119, 6);
+  doc.setLineWidth(0.35);
+  doc.roundedRect(pageWidth / 2 - deskW / 2, deskY, deskW, deskH, 0.8, 0.8, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.8);
+  doc.setTextColor(120, 53, 15);
+  doc.text('MEJA PENGAWAS RUANG', pageWidth / 2, deskY + 3.1, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.6);
+  doc.text(fitSingleLineText(doc, invName, deskW - 6), pageWidth / 2, deskY + 6.0, {
+    align: 'center',
+  });
+  if (invNip) {
+    doc.setFontSize(5.8);
+    doc.text(`NIP. ${invNip}`, pageWidth / 2, deskY + 8.5, { align: 'center' });
+  }
+
+  // Class Color Legend Pills
+  let gridStartY = deskY + deskH + 2.5;
+  const classesInRoom = getOrderedClassNamesInRoom(
+    students,
+    room.id,
+    settings.customClassOrder
+  );
+  if (classesInRoom.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.2);
+    const pills: { label: string; w: number; theme: ReturnType<typeof getClassColorTheme> }[] =
+      classesInRoom.map((cls) => {
+        const theme = getClassColorTheme(cls, orderedClasses, settings.classColors);
+        const w = Math.max(12, doc.getTextWidth(cls) + 5.5);
+        return { label: cls, w, theme };
+      });
+    const totalW = pills.reduce((sum, p) => sum + p.w + 2, 18);
+    const startLegendX = Math.max(marginX, (pageWidth - Math.min(contentWidth, totalW)) / 2);
+    let lx = startLegendX;
+    let ly = gridStartY;
+    doc.setTextColor(71, 85, 105);
+    doc.text('Warna Kelas:', lx, ly + 2.9);
+    lx += 16.5;
+
+    pills.forEach((pill) => {
+      if (lx + pill.w > pageWidth - marginX) {
+        lx = startLegendX;
+        ly += 5.0;
+      }
+      doc.setFillColor(...pill.theme.badgeBgRgb);
+      doc.setDrawColor(...pill.theme.borderRgb);
+      doc.setLineWidth(0.25);
+      doc.roundedRect(lx, ly, pill.w, 4.1, 0.7, 0.7, 'FD');
+      doc.setFillColor(...pill.theme.seatBoxBgRgb);
+      doc.rect(lx + 1.1, ly + 1.05, 2.0, 2.0, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.0);
+      doc.setTextColor(...pill.theme.badgeTextRgb);
+      doc.text(pill.label, lx + 4.0, ly + 2.9);
+      lx += pill.w + 1.8;
+    });
+    gridStartY = ly + 6.2;
+  }
+
+  // Physical Seating Grid (dynamically scaled to fit cleanly on 1 page)
+  const bottomReserve = 29;
+  const availGridH = Math.max(60, pageHeight - gridStartY - bottomReserve);
+  const colGap = columns >= 5 ? 2.5 : 3.5;
+  const rowGap = rows >= 8 ? 2.0 : 2.8;
+  const seatW = (contentWidth - colGap * (columns - 1)) / columns;
+  const seatH = Math.min(22.5, Math.max(11.5, (availGridH - rowGap * (rows - 1)) / rows));
+
+  const compactSeat = seatH < 15.5 || columns >= 5;
+  const badgeH = compactSeat ? 3.5 : 4.2;
+  const nameFont = compactSeat ? 5.9 : 7.0;
+  const metaFont = compactSeat ? 5.2 : 5.9;
+
+  for (let idx = 0; idx < capacity; idx++) {
+    const seatNo = idx + 1;
+    const col = idx % columns;
+    const row = Math.floor(idx / columns);
+    const sx = marginX + col * (seatW + colGap);
+    const sy = gridStartY + row * (seatH + rowGap);
+    const student = studentBySeat.get(seatNo);
+
+    if (student) {
+      const theme = getClassColorTheme(student.className, orderedClasses, settings.classColors);
+      doc.setFillColor(...theme.cardBgRgb);
+      doc.setDrawColor(...theme.borderRgb);
+      doc.setLineWidth(0.45);
+      doc.roundedRect(sx, sy, seatW, seatH, 1.1, 1.1, 'FD');
+
+      // Seat number pill & gender badge
+      const seatLabel = `Meja ${String(seatNo).padStart(2, '0')}`;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(compactSeat ? 5.5 : 6.2);
+      const seatBadgeW = Math.min(seatW * 0.58, doc.getTextWidth(seatLabel) + 3.0);
+      doc.setFillColor(...theme.seatBoxBgRgb);
+      doc.roundedRect(sx + 1.2, sy + 1.1, seatBadgeW, badgeH, 0.7, 0.7, 'F');
+      doc.setTextColor(...theme.seatBoxTextRgb);
+      doc.text(seatLabel, sx + 1.2 + seatBadgeW / 2, sy + 1.1 + badgeH * 0.72, {
+        align: 'center',
+      });
+
+      const genderLabel = `(${student.gender})`;
+      const genderBadgeW = Math.max(5.5, doc.getTextWidth(genderLabel) + 2.2);
+      doc.setFillColor(...theme.badgeBgRgb);
+      doc.roundedRect(
+        sx + seatW - genderBadgeW - 1.2,
+        sy + 1.1,
+        genderBadgeW,
+        badgeH,
+        0.7,
+        0.7,
+        'F'
+      );
+      doc.setTextColor(...theme.badgeTextRgb);
+      doc.text(
+        genderLabel,
+        sx + seatW - genderBadgeW / 2 - 1.2,
+        sy + 1.1 + badgeH * 0.72,
+        { align: 'center' }
+      );
+
+      // Divider line
+      const divY = sy + badgeH + 2.0;
+      doc.setDrawColor(...theme.borderRgb);
+      doc.setLineWidth(0.2);
+      doc.line(sx + 1.2, divY, sx + seatW - 1.2, divY);
+
+      // Student Name
+      const bodyMiddleY = divY + (sy + seatH - 4.4 - divY) * 0.56;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(nameFont);
+      doc.setTextColor(15, 23, 42);
+      doc.text(fitSingleLineText(doc, student.name, seatW - 2.6), sx + 1.3, bodyMiddleY);
+
+      // Bottom NIS & Class badge
+      const bottomRowY = sy + seatH - 1.6;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(metaFont);
+      doc.setTextColor(51, 65, 85);
+
+      const clsText = student.className || '-';
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(metaFont - 0.3);
+      const clsMaxW = seatW * 0.52;
+      const clsFitted = fitSingleLineText(doc, clsText, clsMaxW - 2.0);
+      const clsPillW = Math.min(clsMaxW, doc.getTextWidth(clsFitted) + 2.6);
+      const clsPillH = compactSeat ? 3.2 : 3.7;
+      const clsPillX = sx + seatW - clsPillW - 1.2;
+      const clsPillY = bottomRowY - clsPillH + 0.85;
+
+      doc.setFillColor(...theme.badgeBgRgb);
+      doc.roundedRect(clsPillX, clsPillY, clsPillW, clsPillH, 0.6, 0.6, 'F');
+      doc.setTextColor(...theme.badgeTextRgb);
+      doc.text(clsFitted, clsPillX + clsPillW / 2, bottomRowY, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(metaFont);
+      doc.setTextColor(51, 65, 85);
+      const nisMaxW = Math.max(8, clsPillX - (sx + 1.3) - 1.0);
+      doc.text(fitSingleLineText(doc, student.nis || '-', nisMaxW), sx + 1.3, bottomRowY);
+    } else {
+      // Empty Desk Slot
+      doc.setLineDashPattern([1.0, 1.0], 0);
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(sx, sy, seatW, seatH, 1.1, 1.1, 'FD');
+      doc.setLineDashPattern([], 0);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(compactSeat ? 5.5 : 6.0);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Meja ${String(seatNo).padStart(2, '0')}`, sx + 1.4, sy + 3.6);
+      doc.setFont('helvetica', 'italic');
+      doc.text('(Kosong)', sx + seatW / 2, sy + seatH * 0.58, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.0);
+      doc.text('Tersedia', sx + 1.4, sy + seatH - 1.5);
+    }
+  }
+
+  // Back Door label
+  const gridBottomY = gridStartY + rows * seatH + Math.max(0, rows - 1) * rowGap;
+  const backDoorY = Math.min(pageHeight - 25.5, gridBottomY + 4.4);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text('[ PINTU MASUK / BELAKANG KELAS ]', pageWidth / 2, backDoorY, { align: 'center' });
+
+  // Supervisor Signature Block at Bottom Right
+  const cityLabel = extractCityFromSettings(settings);
+  const dateLabel = extractSignatureDateFromSettings(settings);
+  const sigX = pageWidth - marginX - 30;
+  const sigTopY = pageHeight - 23.5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.2);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`${cityLabel}, ${dateLabel}`, sigX, sigTopY, { align: 'center' });
+  doc.text('Mengetahui,', sigX, sigTopY + 3.5, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  doc.text('Pengawas Ruang', sigX, sigTopY + 6.9, { align: 'center' });
+
+  const invDisplay = `(${invName && invName !== '-' ? invName : '.....................................'})`;
+  doc.text(invDisplay, sigX, sigTopY + 17.5, { align: 'center' });
+  const invLineW = doc.getTextWidth(invDisplay);
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.25);
+  doc.line(sigX - invLineW / 2, sigTopY + 18.1, sigX + invLineW / 2, sigTopY + 18.1);
+
+  if (invNip) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.text(`NIP. ${invNip}`, sigX, sigTopY + 21.0, { align: 'center' });
+  }
+}
+
+/**
+ * Export Physical Seating Plan PDF (Denah Tempat Duduk) for a single room.
+ */
+export function exportSeatingPlanPdf(
+  room: Room,
+  students: Student[],
+  settings: ExamSettings,
+  options?: SeatingPlanPdfOptions
+): void {
+  const doc = createPdfDoc('portrait', settings);
+  const orderedClasses = getOrderedClassNames(students, settings.customClassOrder);
+  renderSeatingPlanPage(doc, room, students, settings, orderedClasses, options);
+  doc.save(`Denah_Tempat_Duduk_${room.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`);
+}
+
+/**
+ * Export Physical Seating Plan PDF (Denah Tempat Duduk) for all rooms bundled into one PDF.
+ */
+export function exportAllSeatingPlansPdf(
+  rooms: Room[],
+  students: Student[],
+  settings: ExamSettings
+): void {
+  if (rooms.length === 0) return;
+  const doc = createPdfDoc('portrait', settings);
+  const orderedClasses = getOrderedClassNames(students, settings.customClassOrder);
+  rooms.forEach((room, idx) => {
+    if (idx > 0) doc.addPage();
+    renderSeatingPlanPage(doc, room, students, settings, orderedClasses);
+  });
+  doc.save(`Denah_Tempat_Duduk_Semua_Ruang_${rooms.length}R_${Date.now()}.pdf`);
+}
+
+function renderRoomParticipantsPages(
+  doc: jsPDF,
+  room: Room,
+  students: Student[],
+  settings: ExamSettings
+): void {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 12;
+  const contentWidth = pageWidth - marginX * 2;
+
+  const roomStudents = students
+    .filter((s) => s.roomId === room.id)
+    .sort((a, b) => (a.seatNumber || 0) - (b.seatNumber || 0));
+
+  const maleCount = roomStudents.filter((s) => s.gender === 'L').length;
+  const femaleCount = roomStudents.filter((s) => s.gender === 'P').length;
+  const partList = roomStudents.map((s) => s.participantNo || '').filter(Boolean);
+  const partRange =
+    partList.length > 0 ? `${partList[0]} s/d ${partList[partList.length - 1]}` : '-';
+
+  const classStatsMap = new Map<string, { total: number; l: number; p: number }>();
+  const orderedRoomClasses = getOrderedClassNamesInRoom(
+    students,
+    room.id,
+    settings.customClassOrder
+  );
+  orderedRoomClasses.forEach((cls) => classStatsMap.set(cls, { total: 0, l: 0, p: 0 }));
+  roomStudents.forEach((s) => {
+    const cls = s.className?.trim() || 'Tanpa Kelas';
+    const entry = classStatsMap.get(cls) || { total: 0, l: 0, p: 0 };
+    entry.total += 1;
+    if (s.gender === 'L') entry.l += 1;
+    else entry.p += 1;
+    classStatsMap.set(cls, entry);
+  });
+
+  const classSummaryText =
+    Array.from(classStatsMap.entries())
+      .map(([cls, st]) => `${cls} (${st.total})`)
+      .join(', ') || '-';
+
+  const curY = renderLetterhead(
+    doc,
+    settings,
+    'DATA PESERTA UJIAN TIAP RUANG',
+    `${room.name.toUpperCase()} (${room.code}) - ${room.building} | ${(settings.activityName || settings.examTitle).toUpperCase()} (TA ${settings.academicYear})`
+  );
+
+  // Room metadata info box
+  const infoBoxY = curY - 1;
+  const infoBoxH = 14.5;
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(...BOX_BORDER_DARK);
+  doc.setLineWidth(0.35);
+  doc.rect(marginX, infoBoxY, contentWidth, infoBoxH, 'FD');
+
+  doc.setFontSize(7.6);
+  doc.setTextColor(15, 23, 42);
+
+  const leftColX = marginX + 3;
+  const rightColX = marginX + contentWidth * 0.52;
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Ruang / Lokasi', leftColX, infoBoxY + 4.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`: ${room.name} (${room.code}) — ${room.building}`, leftColX + 24, infoBoxY + 4.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Pengawas Ruang', leftColX, infoBoxY + 9.2);
+  doc.setFont('helvetica', 'bold');
+  const inv1Full = `${room.invigilator1 || '-'}${room.invigilator1Nip ? ` (NIP. ${room.invigilator1Nip})` : ''}`;
+  doc.text(
+    fitSingleLineText(doc, `: ${inv1Full}`, contentWidth * 0.5 - 27),
+    leftColX + 24,
+    infoBoxY + 9.2
+  );
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('No. Peserta', leftColX, infoBoxY + 13.0);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`: ${partRange}`, leftColX + 24, infoBoxY + 13.0);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Kapasitas / Terisi', rightColX, infoBoxY + 4.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(
+    `: ${roomStudents.length} / ${room.capacity} Kursi (L: ${maleCount}, P: ${femaleCount})`,
+    rightColX + 27,
+    infoBoxY + 4.5
+  );
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Komposisi Kelas', rightColX, infoBoxY + 9.2);
+  doc.setFont('helvetica', 'bold');
+  doc.text(
+    fitSingleLineText(doc, `: ${classSummaryText}`, contentWidth * 0.48 - 30),
+    rightColX + 27,
+    infoBoxY + 9.2
+  );
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Sisa Kursi', rightColX, infoBoxY + 13.0);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`: ${Math.max(0, room.capacity - roomStudents.length)} Meja Kosong`, rightColX + 27, infoBoxY + 13.0);
+
+  const tableRows: (string | number)[][] =
+    roomStudents.length > 0
+      ? roomStudents.map((st, idx) => [
+          idx + 1,
+          `Meja ${String(st.seatNumber || idx + 1).padStart(2, '0')}`,
+          st.participantNo || '-',
+          st.nis || '-',
+          st.nisn || '-',
+          st.name || '-',
+          st.className || '-',
+          st.gender,
+        ])
+      : [['-', '-', '-', '-', '-', 'Belum ada peserta yang dialokasikan pada ruangan ini.', '-', '-']];
+
+  const colNo = 9;
+  const colMeja = 17;
+  const colNoPes = 25;
+  const colNis = 18;
+  const colNisn = 22;
+  const colKelas = 23;
+  const colLp = 10;
+  const colNama = Math.max(40, contentWidth - (colNo + colMeja + colNoPes + colNis + colNisn + colKelas + colLp));
+
+  const summaryStripH = 7.2;
+  const tableEndY = renderAutoTableWithSignature(
+    doc,
+    'portrait',
+    settings,
+    infoBoxY + infoBoxH + 3.5,
+    43,
+    [
+      { fontSize: 7.8, headFontSize: 8.0, cellPadV: 1.6, headPadV: 2.0, minCellHeight: 5.8, bottomMargin: 12 },
+      { fontSize: 7.4, headFontSize: 7.6, cellPadV: 1.2, headPadV: 1.6, minCellHeight: 4.9, bottomMargin: 10 },
+      { fontSize: 6.9, headFontSize: 7.2, cellPadV: 0.85, headPadV: 1.3, minCellHeight: 4.2, bottomMargin: 8 },
+      { fontSize: 6.4, headFontSize: 6.8, cellPadV: 0.6, headPadV: 1.1, minCellHeight: 3.7, bottomMargin: 7 },
+    ],
+    (preset) => ({
+      margin: { top: 14, left: marginX, right: marginX, bottom: preset.bottomMargin ?? 12 },
+      showHead: 'everyPage',
+      head: [['No', 'No. Meja', 'No. Peserta', 'NIS', 'NISN', 'Nama Lengkap Peserta', 'Kelas', 'L/P']],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        lineColor: LINE_BLACK,
+        lineWidth: HEAD_LINE_WIDTH,
+        fontSize: preset.headFontSize,
+        fontStyle: 'bold',
+        halign: 'center',
+        valign: 'middle',
+        cellPadding: { top: preset.headPadV, bottom: preset.headPadV, left: 1.4, right: 1.4 },
+      },
+      styles: {
+        fontSize: preset.fontSize,
+        cellPadding: { top: preset.cellPadV, bottom: preset.cellPadV, left: 1.4, right: 1.4 },
+        minCellHeight: preset.minCellHeight,
+        textColor: [15, 23, 42],
+        lineColor: LINE_BLACK,
+        lineWidth: GRID_LINE_WIDTH,
+        valign: 'middle',
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: colNo },
+        1: { halign: 'center', fontStyle: 'bold', cellWidth: colMeja },
+        2: { halign: 'center', fontStyle: 'bold', cellWidth: colNoPes },
+        3: { halign: 'center', cellWidth: colNis },
+        4: { halign: 'center', cellWidth: colNisn },
+        5: { halign: 'left', fontStyle: 'bold', cellWidth: colNama },
+        6: { halign: 'center', cellWidth: colKelas },
+        7: { halign: 'center', fontStyle: 'bold', cellWidth: colLp },
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+    })
+  );
+
+  let afterY = tableEndY + 3.5;
+
+  // Class breakdown summary line + Signatures kept on the same page
+  if (afterY + summaryStripH + 33 > pageHeight - 4) {
+    doc.addPage();
+    afterY = 16;
+  }
+
+  doc.setFillColor(241, 245, 249);
+  doc.setDrawColor(...BOX_BORDER_DARK);
+  doc.setLineWidth(0.35);
+  doc.rect(marginX, afterY, contentWidth, summaryStripH, 'FD');
+
+  const detailBreakdown =
+    Array.from(classStatsMap.entries())
+      .map(([cls, st]) => `${cls}: ${st.total} (${st.l}L/${st.p}P)`)
+      .join('  •  ') || '-';
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.2);
+  doc.setTextColor(15, 23, 42);
+  doc.text(
+    fitSingleLineText(
+      doc,
+      `Rekap Peserta: Total ${roomStudents.length} Siswa (L: ${maleCount}, P: ${femaleCount})  |  ${detailBreakdown}`,
+      contentWidth - 6
+    ),
+    marginX + 3,
+    afterY + 4.7
+  );
+
+  // Official signatures
+  const sigTopY = afterY + summaryStripH + 6;
+  const cityLabel = extractCityFromSettings(settings);
+  const dateLabel = extractSignatureDateFromSettings(settings);
+
+  const leftSigX = marginX + 34;
+  const rightSigX = pageWidth - marginX - 34;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.0);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Mengetahui,', leftSigX, sigTopY, { align: 'center' });
+  doc.text('Ketua Panitia Ujian,', leftSigX, sigTopY + 4.2, { align: 'center' });
+  renderPdfStampAndSignature(doc, settings, 'committee', leftSigX, sigTopY + 5.2, {
+    sigW: 30,
+    sigH: 13.5,
+  });
+  const comName = settings.committeeHead || '-';
+  doc.setFont('helvetica', 'bold');
+  doc.text(comName, leftSigX, sigTopY + 21.5, { align: 'center' });
+  const comW = doc.getTextWidth(comName);
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.25);
+  doc.line(leftSigX - comW / 2, sigTopY + 22.1, leftSigX + comW / 2, sigTopY + 22.1);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.2);
+  doc.text(`NIP. ${settings.committeeNip || '-'}`, leftSigX, sigTopY + 25.5, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.0);
+  doc.text(`${cityLabel}, ${dateLabel}`, rightSigX, sigTopY, { align: 'center' });
+  doc.text('Kepala Sekolah,', rightSigX, sigTopY + 4.2, { align: 'center' });
+  renderPdfStampAndSignature(doc, settings, 'headmaster', rightSigX, sigTopY + 5.2, {
+    sigW: 30,
+    sigH: 13.5,
+    stampSize: 25,
+  });
+  const hmName = settings.headmaster || '-';
+  doc.setFont('helvetica', 'bold');
+  doc.text(hmName, rightSigX, sigTopY + 21.5, { align: 'center' });
+  const hmW = doc.getTextWidth(hmName);
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.25);
+  doc.line(rightSigX - hmW / 2, sigTopY + 22.1, rightSigX + hmW / 2, sigTopY + 22.1);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.2);
+  doc.text(`NIP. ${settings.headmasterNip || '-'}`, rightSigX, sigTopY + 25.5, { align: 'center' });
+}
+
+/**
+ * Export Exam Participant Roster per Room (Data Peserta Ujian Tiap Ruang) to PDF for 1 room.
+ */
+export function exportRoomParticipantsPdf(
+  room: Room,
+  students: Student[],
+  settings: ExamSettings
+): void {
+  const doc = createPdfDoc('portrait', settings);
+  renderRoomParticipantsPages(doc, room, students, settings);
+  doc.save(`Data_Peserta_${room.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`);
+}
+
+/**
+ * Export Exam Participant Roster per Room (Data Peserta Ujian Tiap Ruang) for all rooms bundled into 1 PDF.
+ */
+export function exportAllRoomParticipantsPdf(
+  rooms: Room[],
+  students: Student[],
+  settings: ExamSettings
+): void {
+  if (rooms.length === 0) return;
+  const doc = createPdfDoc('portrait', settings);
+  rooms.forEach((room, idx) => {
+    if (idx > 0) doc.addPage();
+    renderRoomParticipantsPages(doc, room, students, settings);
+  });
+  doc.save(`Data_Peserta_Semua_Ruang_${rooms.length}R_${Date.now()}.pdf`);
 }
 
 /**
@@ -1764,45 +2506,57 @@ export function exportSchedulePdf(
     item.roomNotes || 'Sesi 1',
   ]);
 
-  autoTable(doc, {
-    startY: currentY,
-    margin: { left: 14, right: 14 },
-    head: [['No', 'Hari & Tanggal', 'Waktu / Jam', 'Mata Pelajaran Ujian', 'Tingkat / Kelas', 'Keterangan']],
-    body: tableRows,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [30, 41, 59],
-      textColor: [255, 255, 255],
-      lineColor: LINE_DARK,
-      lineWidth: HEAD_LINE_WIDTH,
-      fontSize: 8.5,
-      halign: 'center',
-      valign: 'middle',
-    },
-    styles: {
-      fontSize: 8,
-      cellPadding: 2.5,
-      textColor: [15, 23, 42],
-      lineColor: LINE_DARK,
-      lineWidth: GRID_LINE_WIDTH,
-      valign: 'middle',
-    },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 10 },
-      1: { halign: 'left', cellWidth: 32 },
-      2: { halign: 'center', cellWidth: 30 },
-      3: { halign: 'left', fontStyle: 'bold', cellWidth: 'auto' },
-      4: { halign: 'center', cellWidth: 26 },
-      5: { halign: 'center', cellWidth: 24 },
-    },
-    alternateRowStyles: {
-      fillColor: [248, 250, 252],
-    },
-  });
+  const finalY = renderAutoTableWithSignature(
+    doc,
+    'portrait',
+    settings,
+    currentY,
+    40,
+    [
+      { fontSize: 8.0, headFontSize: 8.5, cellPadV: 2.5, headPadV: 2.2, minCellHeight: 7.0, bottomMargin: 12 },
+      { fontSize: 7.6, headFontSize: 8.0, cellPadV: 1.8, headPadV: 1.8, minCellHeight: 5.8, bottomMargin: 10 },
+      { fontSize: 7.0, headFontSize: 7.4, cellPadV: 1.2, headPadV: 1.4, minCellHeight: 4.8, bottomMargin: 8 },
+    ],
+    (preset) => ({
+      margin: { top: 14, left: 14, right: 14, bottom: preset.bottomMargin ?? 12 },
+      head: [['No', 'Hari & Tanggal', 'Waktu / Jam', 'Mata Pelajaran Ujian', 'Tingkat / Kelas', 'Keterangan']],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        lineColor: LINE_DARK,
+        lineWidth: HEAD_LINE_WIDTH,
+        fontSize: preset.headFontSize,
+        cellPadding: preset.headPadV,
+        halign: 'center',
+        valign: 'middle',
+      },
+      styles: {
+        fontSize: preset.fontSize,
+        cellPadding: preset.cellPadV,
+        minCellHeight: preset.minCellHeight,
+        textColor: [15, 23, 42],
+        lineColor: LINE_DARK,
+        lineWidth: GRID_LINE_WIDTH,
+        valign: 'middle',
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10 },
+        1: { halign: 'left', cellWidth: 32 },
+        2: { halign: 'center', cellWidth: 30 },
+        3: { halign: 'left', fontStyle: 'bold', cellWidth: 'auto' },
+        4: { halign: 'center', cellWidth: 26 },
+        5: { halign: 'center', cellWidth: 24 },
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+    })
+  );
 
-  const finalY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || currentY + 60;
-  let sigY = finalY + 12;
-  if (sigY + 35 > pageHeight) {
+  let sigY = finalY + (finalY + 41 > pageHeight - 4 ? 8 : 11);
+  if (sigY + 32 > pageHeight - 3) {
     doc.addPage();
     sigY = 25;
   }
@@ -2050,118 +2804,182 @@ export function exportCirculationPdf(
     ];
   });
 
-  autoTable(doc, {
-    startY: nextY,
-    margin: { left: 14, right: 14 },
-    head: [['No', 'Kelas / Rombel', 'L', 'P', 'Total', 'Teralokasi', 'Sebaran Ruang & Nomor Meja']],
-    body: classRows,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [30, 41, 59],
-      textColor: [255, 255, 255],
-      lineColor: LINE_DARK,
-      lineWidth: HEAD_LINE_WIDTH,
-      fontSize: 7.5,
-      halign: 'center',
-    },
-    styles: {
-      fontSize: 7.5,
-      cellPadding: 2,
-      textColor: [15, 23, 42],
-      lineColor: LINE_DARK,
-      lineWidth: GRID_LINE_WIDTH,
-      valign: 'middle',
-    },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 10 },
-      1: { halign: 'left', fontStyle: 'bold', cellWidth: 28 },
-      2: { halign: 'center', cellWidth: 12 },
-      3: { halign: 'center', cellWidth: 12 },
-      4: { halign: 'center', fontStyle: 'bold', cellWidth: 15 },
-      5: { halign: 'center', cellWidth: 18 },
-      6: { halign: 'left', cellWidth: 'auto' },
-    },
-    alternateRowStyles: {
-      fillColor: [248, 250, 252],
-    },
-  });
+  const rotationDays = includeRotation
+    ? buildCirculationSchedule(matrix, schedules, pattern, options?.dayCount)
+    : [];
+  const hasRotationSection = includeRotation && rotationDays.length > 0;
 
-  nextY =
-    ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || nextY + 35) + 8;
+  if (!hasRotationSection) {
+    nextY =
+      renderAutoTableWithSignature(
+        doc,
+        'landscape',
+        settings,
+        nextY,
+        36,
+        [
+          { fontSize: 7.5, headFontSize: 7.5, cellPadV: 2.0, headPadV: 2.0, minCellHeight: 6.0, bottomMargin: 10 },
+          { fontSize: 7.0, headFontSize: 7.2, cellPadV: 1.4, headPadV: 1.5, minCellHeight: 5.0, bottomMargin: 8 },
+          { fontSize: 6.5, headFontSize: 6.8, cellPadV: 0.9, headPadV: 1.2, minCellHeight: 4.2, bottomMargin: 7 },
+        ],
+        (preset) => ({
+          margin: { top: 14, left: 14, right: 14, bottom: preset.bottomMargin ?? 10 },
+          head: [['No', 'Kelas / Rombel', 'L', 'P', 'Total', 'Teralokasi', 'Sebaran Ruang & Nomor Meja']],
+          body: classRows,
+          theme: 'grid',
+          headStyles: {
+            fillColor: [30, 41, 59],
+            textColor: [255, 255, 255],
+            lineColor: LINE_DARK,
+            lineWidth: HEAD_LINE_WIDTH,
+            fontSize: preset.headFontSize,
+            cellPadding: preset.headPadV,
+            halign: 'center',
+          },
+          styles: {
+            fontSize: preset.fontSize,
+            cellPadding: preset.cellPadV,
+            minCellHeight: preset.minCellHeight,
+            textColor: [15, 23, 42],
+            lineColor: LINE_DARK,
+            lineWidth: GRID_LINE_WIDTH,
+            valign: 'middle',
+          },
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 10 },
+            1: { halign: 'left', fontStyle: 'bold', cellWidth: 28 },
+            2: { halign: 'center', cellWidth: 12 },
+            3: { halign: 'center', cellWidth: 12 },
+            4: { halign: 'center', fontStyle: 'bold', cellWidth: 15 },
+            5: { halign: 'center', cellWidth: 18 },
+            6: { halign: 'left', cellWidth: 'auto' },
+          },
+          alternateRowStyles: {
+            fillColor: [248, 250, 252],
+          },
+        })
+      ) + 8;
+  } else {
+    autoTable(doc, {
+      startY: nextY,
+      margin: { left: 14, right: 14 },
+      head: [['No', 'Kelas / Rombel', 'L', 'P', 'Total', 'Teralokasi', 'Sebaran Ruang & Nomor Meja']],
+      body: classRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        lineColor: LINE_DARK,
+        lineWidth: HEAD_LINE_WIDTH,
+        fontSize: 7.5,
+        halign: 'center',
+      },
+      styles: {
+        fontSize: 7.5,
+        cellPadding: 2,
+        textColor: [15, 23, 42],
+        lineColor: LINE_DARK,
+        lineWidth: GRID_LINE_WIDTH,
+        valign: 'middle',
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10 },
+        1: { halign: 'left', fontStyle: 'bold', cellWidth: 28 },
+        2: { halign: 'center', cellWidth: 12 },
+        3: { halign: 'center', cellWidth: 12 },
+        4: { halign: 'center', fontStyle: 'bold', cellWidth: 15 },
+        5: { halign: 'center', cellWidth: 18 },
+        6: { halign: 'left', cellWidth: 'auto' },
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+    });
 
-  // Section 3 (Optional): Jadwal Sirkulasi / Rotasi Ruang per Hari Ujian
-  if (includeRotation) {
-    const rotationDays = buildCirculationSchedule(matrix, schedules, pattern, options?.dayCount);
-    if (rotationDays.length > 0) {
-      if (nextY + 45 > pageHeight) {
-        doc.addPage();
-        nextY = 16;
-      }
+    nextY =
+      ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ||
+        nextY + 35) + 8;
 
-      const patternLabelMap: Record<CirculationPattern, string> = {
-        fixed: 'Tetap (Tanpa Rotasi Ruang)',
-        'rotate-room-forward': 'Rotasi Ruang Maju (+1 Ruang / Hari)',
-        'rotate-room-backward': 'Rotasi Ruang Mundur (-1 Ruang / Hari)',
-        'rotate-seat-shift': 'Rotasi Pergeseran Meja Dalam Ruang',
-      };
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text(
-        `C. JADWAL SIRKULASI / ROTASI PESERTA PER HARI UJIAN — POLA: ${patternLabelMap[pattern].toUpperCase()}`,
-        14,
-        nextY
-      );
-      nextY += 3;
-
-      const rotHead = [['Hari / Tanggal', 'Mata Pelajaran', ...rooms.map((r) => `${r.name} (${r.code})`)]];
-      const rotBody = rotationDays.map((day) => [
-        `${day.dayLabel}\n${day.dateLabel}`,
-        day.subjects.join(', '),
-        ...day.roomAssignments.map(
-          (ra) => `${ra.sourceGroupLabel} (${ra.studentCount} org)\n${ra.classBreakdownText}\n[${ra.seatShiftNote}]`
-        ),
-      ]);
-
-      autoTable(doc, {
-        startY: nextY,
-        margin: { left: 14, right: 14 },
-        head: rotHead,
-        body: rotBody,
-        theme: 'grid',
-        headStyles: {
-          fillColor: [30, 41, 59],
-          textColor: [255, 255, 255],
-          lineColor: LINE_DARK,
-          lineWidth: HEAD_LINE_WIDTH,
-          fontSize: 7.5,
-          halign: 'center',
-        },
-        styles: {
-          fontSize: 7,
-          cellPadding: 2,
-          textColor: [15, 23, 42],
-          lineColor: LINE_DARK,
-          lineWidth: GRID_LINE_WIDTH,
-          valign: 'top',
-        },
-        columnStyles: {
-          0: { halign: 'left', fontStyle: 'bold', cellWidth: 32 },
-          1: { halign: 'left', cellWidth: 44 },
-        },
-        alternateRowStyles: {
-          fillColor: [248, 250, 252],
-        },
-      });
-
-      nextY =
-        ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || nextY + 40) + 10;
+    // Section 3: Jadwal Sirkulasi / Rotasi Ruang per Hari Ujian
+    if (nextY + 45 > pageHeight) {
+      doc.addPage();
+      nextY = 16;
     }
+
+    const patternLabelMap: Record<CirculationPattern, string> = {
+      fixed: 'Tetap (Tanpa Rotasi Ruang)',
+      'rotate-room-forward': 'Rotasi Ruang Maju (+1 Ruang / Hari)',
+      'rotate-room-backward': 'Rotasi Ruang Mundur (-1 Ruang / Hari)',
+      'rotate-seat-shift': 'Rotasi Pergeseran Meja Dalam Ruang',
+    };
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(
+      `C. JADWAL SIRKULASI / ROTASI PESERTA PER HARI UJIAN — POLA: ${patternLabelMap[pattern].toUpperCase()}`,
+      14,
+      nextY
+    );
+    nextY += 3;
+
+    const rotHead = [['Hari / Tanggal', 'Mata Pelajaran', ...rooms.map((r) => `${r.name} (${r.code})`)]];
+    const rotBody = rotationDays.map((day) => [
+      `${day.dayLabel}\n${day.dateLabel}`,
+      day.subjects.join(', '),
+      ...day.roomAssignments.map(
+        (ra) => `${ra.sourceGroupLabel} (${ra.studentCount} org)\n${ra.classBreakdownText}\n[${ra.seatShiftNote}]`
+      ),
+    ]);
+
+    nextY =
+      renderAutoTableWithSignature(
+        doc,
+        'landscape',
+        settings,
+        nextY,
+        36,
+        [
+          { fontSize: 7.0, headFontSize: 7.5, cellPadV: 2.0, headPadV: 1.8, minCellHeight: 6.5, bottomMargin: 10 },
+          { fontSize: 6.5, headFontSize: 7.0, cellPadV: 1.4, headPadV: 1.4, minCellHeight: 5.5, bottomMargin: 8 },
+          { fontSize: 6.0, headFontSize: 6.5, cellPadV: 1.0, headPadV: 1.1, minCellHeight: 4.5, bottomMargin: 7 },
+        ],
+        (preset) => ({
+          margin: { top: 14, left: 14, right: 14, bottom: preset.bottomMargin ?? 10 },
+          head: rotHead,
+          body: rotBody,
+          theme: 'grid',
+          headStyles: {
+            fillColor: [30, 41, 59],
+            textColor: [255, 255, 255],
+            lineColor: LINE_DARK,
+            lineWidth: HEAD_LINE_WIDTH,
+            fontSize: preset.headFontSize,
+            cellPadding: preset.headPadV,
+            halign: 'center',
+          },
+          styles: {
+            fontSize: preset.fontSize,
+            cellPadding: preset.cellPadV,
+            minCellHeight: preset.minCellHeight,
+            textColor: [15, 23, 42],
+            lineColor: LINE_DARK,
+            lineWidth: GRID_LINE_WIDTH,
+            valign: 'top',
+          },
+          columnStyles: {
+            0: { halign: 'left', fontStyle: 'bold', cellWidth: 32 },
+            1: { halign: 'left', cellWidth: 44 },
+          },
+          alternateRowStyles: {
+            fillColor: [248, 250, 252],
+          },
+        })
+      ) + 8;
   }
 
   // Official Signatures
-  if (nextY + 32 > pageHeight) {
+  if (nextY + 29 > pageHeight - 3) {
     doc.addPage();
     nextY = 20;
   }
@@ -2293,51 +3111,62 @@ function renderDailyJournalPage(
     });
   }
 
-  autoTable(doc, {
-    startY: curY,
-    margin: { left: 14, right: 14 },
-    head,
-    body: bodyRows,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [217, 217, 217],
-      textColor: [0, 0, 0],
-      lineColor: LINE_BLACK,
-      lineWidth: HEAD_LINE_WIDTH,
-      fontSize: 7.8,
-      fontStyle: 'bold',
-      cellPadding: 1.8,
-      halign: 'center',
-      valign: 'middle',
-    },
-    styles: {
-      fontSize: 7.8,
-      cellPadding: 2.2,
-      textColor: [0, 0, 0],
-      lineColor: LINE_BLACK,
-      lineWidth: GRID_LINE_WIDTH,
-      valign: 'middle',
-      minCellHeight: 8.5,
-    },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 8 },
-      1: { halign: 'left', cellWidth: 24 },
-      2: { halign: 'left', cellWidth: 42 },
-      3: { halign: 'left', cellWidth: 28 },
-      4: { halign: 'center', cellWidth: 12 },
-      5: { halign: 'center', cellWidth: 9 },
-      6: { halign: 'center', cellWidth: 15 },
-      7: { halign: 'center', cellWidth: 11 },
-      8: { halign: 'center', cellWidth: 17 },
-      9: { halign: 'left', cellWidth: 16 },
-    },
-  });
+  const tableFinalY = renderAutoTableWithSignature(
+    doc,
+    'portrait',
+    settings,
+    curY,
+    38,
+    [
+      { fontSize: 7.8, headFontSize: 7.8, cellPadV: 2.2, headPadV: 1.8, minCellHeight: 8.5, bottomMargin: 12 },
+      { fontSize: 7.4, headFontSize: 7.4, cellPadV: 1.5, headPadV: 1.5, minCellHeight: 6.8, bottomMargin: 10 },
+      { fontSize: 6.9, headFontSize: 7.0, cellPadV: 1.0, headPadV: 1.2, minCellHeight: 5.4, bottomMargin: 8 },
+      { fontSize: 6.4, headFontSize: 6.6, cellPadV: 0.7, headPadV: 1.0, minCellHeight: 4.5, bottomMargin: 7 },
+    ],
+    (preset) => ({
+      margin: { top: 14, left: 14, right: 14, bottom: preset.bottomMargin ?? 12 },
+      head,
+      body: bodyRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [217, 217, 217],
+        textColor: [0, 0, 0],
+        lineColor: LINE_BLACK,
+        lineWidth: HEAD_LINE_WIDTH,
+        fontSize: preset.headFontSize,
+        fontStyle: 'bold',
+        cellPadding: preset.headPadV,
+        halign: 'center',
+        valign: 'middle',
+      },
+      styles: {
+        fontSize: preset.fontSize,
+        cellPadding: preset.cellPadV,
+        textColor: [0, 0, 0],
+        lineColor: LINE_BLACK,
+        lineWidth: GRID_LINE_WIDTH,
+        valign: 'middle',
+        minCellHeight: preset.minCellHeight,
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 8 },
+        1: { halign: 'left', cellWidth: 24 },
+        2: { halign: 'left', cellWidth: 42 },
+        3: { halign: 'left', cellWidth: 28 },
+        4: { halign: 'center', cellWidth: 12 },
+        5: { halign: 'center', cellWidth: 9 },
+        6: { halign: 'center', cellWidth: 15 },
+        7: { halign: 'center', cellWidth: 11 },
+        8: { halign: 'center', cellWidth: 17 },
+        9: { halign: 'left', cellWidth: 16 },
+      },
+    })
+  );
 
-  curY =
-    ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || curY + 80) + 8;
+  curY = tableFinalY + (tableFinalY + 37 > pageHeight - 4 ? 6 : 8);
 
   // Bottom Right Signature: Kepala Sekolah
-  if (curY + 34 > pageHeight) {
+  if (curY + 30 > pageHeight - 3) {
     doc.addPage();
     curY = 22;
   }
@@ -2477,21 +3306,29 @@ function renderHandoverBeritaAcaraPage(
   const committeeOut = record.committeeOfficerOut || settings.committeeHead || 'Petugas Panitia';
   const committeeIn = record.committeeOfficerIn || settings.committeeHead || 'Petugas Panitia';
 
+  const isCompactHandover =
+    directionMode === 'both' && (dayGroup.sessions.length >= 3 || pageHeight < 290);
+  const bannerH = isCompactHandover ? 5.8 : 6.5;
+  const tableFontH = isCompactHandover ? 6.8 : 7.2;
+  const cellPadH = isCompactHandover ? 1.25 : 1.8;
+  const sigOffsetH = isCompactHandover ? 13.5 : 17;
+  const sigAdvanceH = isCompactHandover ? 19 : 23;
+
   // =========================================================================
   // TAHAP I: PANITIA -> PENGAWAS RUANG (PENGAMBILAN BERKAS)
   // =========================================================================
   if (directionMode === 'both' || directionMode === 'to-invigilator') {
     doc.setFillColor(30, 41, 59);
-    doc.roundedRect(14, curY, pageWidth - 28, 6.5, 1, 1, 'F');
+    doc.roundedRect(14, curY, pageWidth - 28, bannerH, 1, 1, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(isCompactHandover ? 7.5 : 8);
     doc.setTextColor(255, 255, 255);
     doc.text(
       'I. SERAH TERIMA DARI PANITIA KE PENGAWAS RUANG (PENGAMBILAN NASKAH & BERKAS)',
       17,
-      curY + 4.4
+      curY + (isCompactHandover ? 4.0 : 4.4)
     );
-    curY += 9;
+    curY += bannerH + (isCompactHandover ? 2.0 : 2.5);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
@@ -2542,13 +3379,13 @@ function renderHandoverBeritaAcaraPage(
         textColor: [255, 255, 255],
         lineColor: LINE_DARK,
         lineWidth: HEAD_LINE_WIDTH,
-        fontSize: 7.2,
+        fontSize: tableFontH,
         halign: 'center',
         valign: 'middle',
       },
       styles: {
-        fontSize: 7.2,
-        cellPadding: 1.8,
+        fontSize: tableFontH,
+        cellPadding: cellPadH,
         textColor: [15, 23, 42],
         lineColor: LINE_DARK,
         lineWidth: GRID_LINE_WIDTH,
@@ -2569,7 +3406,8 @@ function renderHandoverBeritaAcaraPage(
     });
 
     curY =
-      ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || curY + 25) + 3.5;
+      ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || curY + 25) +
+      (isCompactHandover ? 2.8 : 3.5);
 
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(7);
@@ -2579,7 +3417,12 @@ function renderHandoverBeritaAcaraPage(
       14,
       curY
     );
-    curY += 5;
+    curY += isCompactHandover ? 3.8 : 5;
+
+    if (curY + 22 > pageHeight - 5) {
+      doc.addPage();
+      curY = 18;
+    }
 
     // Signatures Stage I
     const sLeft = 52;
@@ -2590,48 +3433,50 @@ function renderHandoverBeritaAcaraPage(
 
     doc.text('Yang Menyerahkan,', sLeft, curY, { align: 'center' });
     doc.setFont('helvetica', 'bold');
-    doc.text('Petugas / Panitia Ujian', sLeft, curY + 3.8, { align: 'center' });
-    doc.text(`( ${committeeOut} )`, sLeft, curY + 17, { align: 'center' });
+    doc.text('Petugas / Panitia Ujian', sLeft, curY + 3.6, { align: 'center' });
+    doc.text(`( ${committeeOut} )`, sLeft, curY + sigOffsetH, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.text('Yang Menerima,', sRight, curY, { align: 'center' });
     doc.setFont('helvetica', 'bold');
-    doc.text(`Pengawas ${room.name}`, sRight, curY + 3.8, { align: 'center' });
+    doc.text(`Pengawas ${room.name}`, sRight, curY + 3.6, { align: 'center' });
     doc.text(
       `( ${invigilatorName} )`,
       sRight,
-      curY + 17,
+      curY + sigOffsetH,
       { align: 'center' }
     );
     if (invigilatorNipLabel) {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6.8);
-      doc.text(`NIP. ${invigilatorNipLabel}`, sRight, curY + 20.5, { align: 'center' });
+      doc.text(`NIP. ${invigilatorNipLabel}`, sRight, curY + sigOffsetH + 3.4, { align: 'center' });
     }
 
-    curY += 23;
+    curY += sigAdvanceH;
   }
 
   // =========================================================================
   // TAHAP II: PENGAWAS RUANG -> PANITIA (PENGEMBALIAN BERKAS)
   // =========================================================================
   if (directionMode === 'both' || directionMode === 'to-committee') {
-    if (curY + 68 > pageHeight) {
+    const estimatedStage2PlusValidationH =
+      bannerH + 14 + dayGroup.sessions.length * (isCompactHandover ? 7.5 : 9) + sigAdvanceH + 26;
+    if (curY + estimatedStage2PlusValidationH > pageHeight - 5) {
       doc.addPage();
       curY = 18;
     }
 
     doc.setFillColor(15, 118, 110); // teal-700 distinction for return stage
-    doc.roundedRect(14, curY, pageWidth - 28, 6.5, 1, 1, 'F');
+    doc.roundedRect(14, curY, pageWidth - 28, bannerH, 1, 1, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(isCompactHandover ? 7.5 : 8);
     doc.setTextColor(255, 255, 255);
     doc.text(
       'II. SERAH TERIMA DARI PENGAWAS RUANG KE PANITIA (PENGEMBALIAN HASIL & BERKAS UJIAN)',
       17,
-      curY + 4.4
+      curY + (isCompactHandover ? 4.0 : 4.4)
     );
-    curY += 9;
+    curY += bannerH + (isCompactHandover ? 2.0 : 2.5);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
@@ -2682,13 +3527,13 @@ function renderHandoverBeritaAcaraPage(
         textColor: [255, 255, 255],
         lineColor: LINE_DARK,
         lineWidth: HEAD_LINE_WIDTH,
-        fontSize: 7.2,
+        fontSize: tableFontH,
         halign: 'center',
         valign: 'middle',
       },
       styles: {
-        fontSize: 7.2,
-        cellPadding: 1.8,
+        fontSize: tableFontH,
+        cellPadding: cellPadH,
         textColor: [15, 23, 42],
         lineColor: LINE_DARK,
         lineWidth: GRID_LINE_WIDTH,
@@ -2709,7 +3554,8 @@ function renderHandoverBeritaAcaraPage(
     });
 
     curY =
-      ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || curY + 25) + 3.5;
+      ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || curY + 25) +
+      (isCompactHandover ? 2.8 : 3.5);
 
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(7);
@@ -2719,7 +3565,12 @@ function renderHandoverBeritaAcaraPage(
       14,
       curY
     );
-    curY += 5;
+    curY += isCompactHandover ? 3.8 : 5;
+
+    if (curY + sigOffsetH + 28 > pageHeight - 4) {
+      doc.addPage();
+      curY = 18;
+    }
 
     // Signatures Stage II (Reversed: Pengawas hands over, Panitia receives)
     const sLeft = 52;
@@ -2730,30 +3581,30 @@ function renderHandoverBeritaAcaraPage(
 
     doc.text('Yang Menyerahkan,', sLeft, curY, { align: 'center' });
     doc.setFont('helvetica', 'bold');
-    doc.text(`Pengawas ${room.name}`, sLeft, curY + 3.8, { align: 'center' });
+    doc.text(`Pengawas ${room.name}`, sLeft, curY + 3.6, { align: 'center' });
     doc.text(
       `( ${invigilatorName} )`,
       sLeft,
-      curY + 17,
+      curY + sigOffsetH,
       { align: 'center' }
     );
     if (invigilatorNipLabel) {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6.8);
-      doc.text(`NIP. ${invigilatorNipLabel}`, sLeft, curY + 20.5, { align: 'center' });
+      doc.text(`NIP. ${invigilatorNipLabel}`, sLeft, curY + sigOffsetH + 3.4, { align: 'center' });
     }
 
     doc.setFont('helvetica', 'normal');
     doc.text('Yang Menerima,', sRight, curY, { align: 'center' });
     doc.setFont('helvetica', 'bold');
-    doc.text('Petugas / Panitia Ujian', sRight, curY + 3.8, { align: 'center' });
-    doc.text(`( ${committeeIn} )`, sRight, curY + 17, { align: 'center' });
+    doc.text('Petugas / Panitia Ujian', sRight, curY + 3.6, { align: 'center' });
+    doc.text(`( ${committeeIn} )`, sRight, curY + sigOffsetH, { align: 'center' });
 
-    curY += 22;
+    curY += sigAdvanceH - 1;
   }
 
-  // Final Validation by Ketua Panitia Ujian
-  if (curY + 24 > pageHeight) {
+  // Final Validation by Ketua Panitia Ujian (kept on the same sheet)
+  if (curY + 26 > pageHeight - 3) {
     doc.addPage();
     curY = 20;
   }
@@ -2965,50 +3816,62 @@ export function exportDistributionMatrixPdf(
   colStyles[baseIdx + 4] = { halign: 'center', cellWidth: 11 };
   colStyles[baseIdx + 5] = { halign: 'center', cellWidth: 38 };
 
-  autoTable(doc, {
-    startY: currentY,
-    margin: { left: 14, right: 14 },
-    head: matrixHead,
-    body: matrixBody,
-    foot: matrixFoot,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [30, 41, 59],
-      textColor: [255, 255, 255],
-      lineColor: LINE_DARK,
-      lineWidth: HEAD_LINE_WIDTH,
-      fontSize: 7.5,
-      halign: 'center',
-      valign: 'middle',
-    },
-    footStyles: {
-      fillColor: [226, 232, 240],
-      textColor: [15, 23, 42],
-      lineColor: LINE_DARK,
-      lineWidth: HEAD_LINE_WIDTH,
-      fontStyle: 'bold',
-      fontSize: 7.5,
-      halign: 'center',
-    },
-    styles: {
-      fontSize: 7.4,
-      cellPadding: 2,
-      textColor: [15, 23, 42],
-      lineColor: LINE_DARK,
-      lineWidth: GRID_LINE_WIDTH,
-      valign: 'middle',
-    },
-    columnStyles: colStyles,
-    alternateRowStyles: {
-      fillColor: [248, 250, 252],
-    },
-  });
+  const tableEndY = renderAutoTableWithSignature(
+    doc,
+    'landscape',
+    settings,
+    currentY,
+    36,
+    [
+      { fontSize: 7.4, headFontSize: 7.5, cellPadV: 2.0, headPadV: 2.0, minCellHeight: 6.0, bottomMargin: 10 },
+      { fontSize: 7.0, headFontSize: 7.2, cellPadV: 1.4, headPadV: 1.5, minCellHeight: 5.0, bottomMargin: 8 },
+      { fontSize: 6.5, headFontSize: 6.8, cellPadV: 0.9, headPadV: 1.2, minCellHeight: 4.2, bottomMargin: 7 },
+    ],
+    (preset) => ({
+      margin: { top: 14, left: 14, right: 14, bottom: preset.bottomMargin ?? 10 },
+      head: matrixHead,
+      body: matrixBody,
+      foot: matrixFoot,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        lineColor: LINE_DARK,
+        lineWidth: HEAD_LINE_WIDTH,
+        fontSize: preset.headFontSize,
+        cellPadding: preset.headPadV,
+        halign: 'center',
+        valign: 'middle',
+      },
+      footStyles: {
+        fillColor: [226, 232, 240],
+        textColor: [15, 23, 42],
+        lineColor: LINE_DARK,
+        lineWidth: HEAD_LINE_WIDTH,
+        fontStyle: 'bold',
+        fontSize: preset.headFontSize,
+        cellPadding: preset.headPadV,
+        halign: 'center',
+      },
+      styles: {
+        fontSize: preset.fontSize,
+        cellPadding: preset.cellPadV,
+        minCellHeight: preset.minCellHeight,
+        textColor: [15, 23, 42],
+        lineColor: LINE_DARK,
+        lineWidth: GRID_LINE_WIDTH,
+        valign: 'middle',
+      },
+      columnStyles: colStyles,
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+    })
+  );
 
-  let nextY =
-    ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ||
-      currentY + 45) + 10;
+  let nextY = tableEndY + (tableEndY + 36 > pageHeight - 4 ? 7 : 9);
 
-  if (nextY + 32 > pageHeight) {
+  if (nextY + 28 > pageHeight - 3) {
     doc.addPage();
     nextY = 22;
   }
@@ -3137,41 +4000,51 @@ export function exportInvigilatorSchedulePdf(
     colStyles[4 + i] = { halign: 'left', cellWidth: slotColW };
   });
 
-  autoTable(doc, {
-    startY: currentY,
-    margin: { left: 14, right: 14 },
-    head,
-    body,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [30, 41, 59],
-      textColor: [255, 255, 255],
-      lineColor: LINE_DARK,
-      lineWidth: HEAD_LINE_WIDTH,
-      fontSize: tableFontSize,
-      halign: 'center',
-      valign: 'middle',
-    },
-    styles: {
-      fontSize: tableFontSize,
-      cellPadding: 1.8,
-      textColor: [15, 23, 42],
-      lineColor: LINE_DARK,
-      lineWidth: GRID_LINE_WIDTH,
-      valign: 'middle',
-      minCellHeight: 8,
-    },
-    columnStyles: colStyles,
-    alternateRowStyles: {
-      fillColor: [248, 250, 252],
-    },
-  });
+  const tableEndY = renderAutoTableWithSignature(
+    doc,
+    'landscape',
+    settings,
+    currentY,
+    36,
+    [
+      { fontSize: tableFontSize, headFontSize: tableFontSize, cellPadV: 1.8, headPadV: 1.8, minCellHeight: 8.0, bottomMargin: 10 },
+      { fontSize: Math.min(tableFontSize, 6.8), headFontSize: Math.min(tableFontSize, 6.8), cellPadV: 1.2, headPadV: 1.4, minCellHeight: 6.2, bottomMargin: 8 },
+      { fontSize: Math.min(tableFontSize, 6.2), headFontSize: Math.min(tableFontSize, 6.4), cellPadV: 0.85, headPadV: 1.1, minCellHeight: 4.8, bottomMargin: 7 },
+    ],
+    (preset) => ({
+      margin: { top: 14, left: 14, right: 14, bottom: preset.bottomMargin ?? 10 },
+      head,
+      body,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        lineColor: LINE_DARK,
+        lineWidth: HEAD_LINE_WIDTH,
+        fontSize: preset.headFontSize,
+        cellPadding: preset.headPadV,
+        halign: 'center',
+        valign: 'middle',
+      },
+      styles: {
+        fontSize: preset.fontSize,
+        cellPadding: preset.cellPadV,
+        textColor: [15, 23, 42],
+        lineColor: LINE_DARK,
+        lineWidth: GRID_LINE_WIDTH,
+        valign: 'middle',
+        minCellHeight: preset.minCellHeight,
+      },
+      columnStyles: colStyles,
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+    })
+  );
 
-  let nextY =
-    ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ||
-      currentY + 45) + 10;
+  let nextY = tableEndY + (tableEndY + 36 > pageHeight - 4 ? 7 : 9);
 
-  if (nextY + 32 > pageHeight) {
+  if (nextY + 28 > pageHeight - 3) {
     doc.addPage();
     nextY = 22;
   }
@@ -3260,48 +4133,54 @@ export function exportInvigilatorAttendancePdf(
     ];
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const body: any[] = invigilatorRows.map((item, idx) => [
-      idx + 1,
-      item.nip ? `${item.name}\nNIP. ${item.nip}` : item.name,
-      ...dayGroups.map((dg) => {
-        const assignedCodes = item.dayRoomMap[dg.dayKey];
-        if (!assignedCodes || assignedCodes.length === 0) {
+    const buildMultiDayBody = (cellMinH: number): any[] => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows: any[] = invigilatorRows.map((item, idx) => [
+        idx + 1,
+        item.nip ? `${item.name}\nNIP. ${item.nip}` : item.name,
+        ...dayGroups.map((dg) => {
+          const assignedCodes = item.dayRoomMap[dg.dayKey];
+          if (!assignedCodes || assignedCodes.length === 0) {
+            return {
+              content: '—',
+              styles: { halign: 'center', textColor: [148, 163, 184], minCellHeight: cellMinH },
+            };
+          }
           return {
-            content: '—',
-            styles: { halign: 'center', textColor: [148, 163, 184], minCellHeight: 11 },
+            content: assignedCodes.length > 0 && !item.isPlaceholder ? `(${assignedCodes.join(',')})` : '',
+            styles: {
+              halign: 'right',
+              valign: 'bottom',
+              fontSize: 6.2,
+              textColor: [100, 116, 139],
+              minCellHeight: cellMinH,
+            },
           };
-        }
-        return {
-          content: assignedCodes.length > 0 && !item.isPlaceholder ? `(${assignedCodes.join(',')})` : '',
-          styles: {
-            halign: 'right',
-            valign: 'bottom',
-            fontSize: 6.2,
-            textColor: [100, 116, 139],
-            minCellHeight: 11,
-          },
-        };
-      }),
-    ]);
+        }),
+      ]);
 
-    const jumlahRowIdx = body.length;
-    body.push([
-      {
-        content: 'Jumlah Pengawas Hadir',
-        colSpan: 2,
-        styles: { halign: 'center', fontStyle: 'bold' },
-      },
-      ...dayGroups.map(() => ''),
-    ]);
+      rows.push([
+        {
+          content: 'Jumlah Pengawas Hadir',
+          colSpan: 2,
+          styles: { halign: 'center', fontStyle: 'bold' },
+        },
+        ...dayGroups.map(() => ''),
+      ]);
 
-    body.push([
-      {
-        content: 'Paraf Ketua Panitia',
-        colSpan: 2,
-        styles: { halign: 'center', fontStyle: 'bold', minCellHeight: 10 },
-      },
-      ...dayGroups.map(() => ({ content: '', styles: { minCellHeight: 10 } })),
-    ]);
+      rows.push([
+        {
+          content: 'Paraf Ketua Panitia',
+          colSpan: 2,
+          styles: { halign: 'center', fontStyle: 'bold', minCellHeight: Math.max(7.5, cellMinH - 1) },
+        },
+        ...dayGroups.map(() => ({ content: '', styles: { minCellHeight: Math.max(7.5, cellMinH - 1) } })),
+      ]);
+
+      return rows;
+    };
+
+    const jumlahRowIdx = invigilatorRows.length;
 
     const printableW = pageWidth - 28;
     const fixedW = 9 + 60; // 69mm
@@ -3316,43 +4195,54 @@ export function exportInvigilatorAttendancePdf(
       colStyles[2 + i] = { halign: 'center', cellWidth: dayColW };
     });
 
-    autoTable(doc, {
-      startY: currentY,
-      margin: { left: 14, right: 14 },
-      head,
-      body,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [30, 41, 59],
-        textColor: [255, 255, 255],
-        lineColor: LINE_BLACK,
-        lineWidth: HEAD_LINE_WIDTH,
-        fontSize: 7.8,
-        fontStyle: 'bold',
-        valign: 'middle',
-      },
-      styles: {
-        fontSize: 7.8,
-        cellPadding: 1.8,
-        textColor: [0, 0, 0],
-        lineColor: LINE_BLACK,
-        lineWidth: GRID_LINE_WIDTH,
-        valign: 'middle',
-      },
-      columnStyles: colStyles,
-      didDrawCell: (data) => {
-        if (data.section === 'body' && data.row.index === jumlahRowIdx) {
-          doc.setDrawColor(...LINE_BLACK);
-          doc.setLineWidth(0.75);
-          doc.line(data.cell.x, data.cell.y, data.cell.x + data.cell.width, data.cell.y);
-        }
-      },
-    });
+    const tableEndY = renderAutoTableWithSignature(
+      doc,
+      'landscape',
+      settings,
+      currentY,
+      34,
+      [
+        { fontSize: 7.8, headFontSize: 7.8, cellPadV: 1.8, headPadV: 1.8, minCellHeight: 11, bottomMargin: 10 },
+        { fontSize: 7.4, headFontSize: 7.4, cellPadV: 1.4, headPadV: 1.5, minCellHeight: 9.2, bottomMargin: 8 },
+        { fontSize: 7.0, headFontSize: 7.0, cellPadV: 1.0, headPadV: 1.2, minCellHeight: 7.8, bottomMargin: 7 },
+        { fontSize: 6.5, headFontSize: 6.8, cellPadV: 0.8, headPadV: 1.0, minCellHeight: 6.8, bottomMargin: 6 },
+      ],
+      (preset, targetDoc) => ({
+        margin: { top: 14, left: 14, right: 14, bottom: preset.bottomMargin ?? 10 },
+        head,
+        body: buildMultiDayBody(preset.minCellHeight),
+        theme: 'grid',
+        headStyles: {
+          fillColor: [30, 41, 59],
+          textColor: [255, 255, 255],
+          lineColor: LINE_BLACK,
+          lineWidth: HEAD_LINE_WIDTH,
+          fontSize: preset.headFontSize,
+          cellPadding: preset.headPadV,
+          fontStyle: 'bold',
+          valign: 'middle',
+        },
+        styles: {
+          fontSize: preset.fontSize,
+          cellPadding: preset.cellPadV,
+          textColor: [0, 0, 0],
+          lineColor: LINE_BLACK,
+          lineWidth: GRID_LINE_WIDTH,
+          valign: 'middle',
+        },
+        columnStyles: colStyles,
+        didDrawCell: (data) => {
+          if (data.section === 'body' && data.row.index === jumlahRowIdx) {
+            targetDoc.setDrawColor(...LINE_BLACK);
+            targetDoc.setLineWidth(0.75);
+            targetDoc.line(data.cell.x, data.cell.y, data.cell.x + data.cell.width, data.cell.y);
+          }
+        },
+      })
+    );
 
-    let nextY =
-      ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ||
-        currentY + 55) + 9;
-    if (nextY + 28 > pageHeight) {
+    let nextY = tableEndY + (tableEndY + 34 > pageHeight - 4 ? 7 : 9);
+    if (nextY + 27 > pageHeight - 3) {
       doc.addPage();
       nextY = 22;
     }
@@ -3516,38 +4406,49 @@ export function exportInvigilatorAttendancePdf(
           6: { halign: 'center', cellWidth: 17 },
         };
 
-    autoTable(doc, {
-      startY: currentY,
-      margin: { left: 14, right: 14 },
-      head: headRow,
-      body: bodyRows,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [30, 41, 59],
-        textColor: [255, 255, 255],
-        lineColor: LINE_BLACK,
-        lineWidth: HEAD_LINE_WIDTH,
-        fontSize: hasMultipleSessions ? 7.5 : 8,
-        fontStyle: 'bold',
-        halign: 'center',
-        valign: 'middle',
-      },
-      styles: {
-        fontSize: hasMultipleSessions ? 7.5 : 8,
-        cellPadding: 1.8,
-        textColor: [0, 0, 0],
-        lineColor: LINE_BLACK,
-        lineWidth: GRID_LINE_WIDTH,
-        valign: 'middle',
-        minCellHeight: 9.5,
-      },
-      columnStyles: colStyles,
-    });
+    const tableEndY = renderAutoTableWithSignature(
+      doc,
+      'portrait',
+      settings,
+      currentY,
+      36,
+      [
+        { fontSize: hasMultipleSessions ? 7.5 : 8, headFontSize: hasMultipleSessions ? 7.5 : 8, cellPadV: 1.8, headPadV: 1.8, minCellHeight: 9.5, bottomMargin: 12 },
+        { fontSize: 7.2, headFontSize: 7.3, cellPadV: 1.3, headPadV: 1.4, minCellHeight: 7.6, bottomMargin: 10 },
+        { fontSize: 6.7, headFontSize: 6.9, cellPadV: 0.9, headPadV: 1.1, minCellHeight: 6.2, bottomMargin: 8 },
+        { fontSize: 6.3, headFontSize: 6.6, cellPadV: 0.65, headPadV: 0.95, minCellHeight: 5.2, bottomMargin: 7 },
+      ],
+      (preset) => ({
+        margin: { top: 14, left: 14, right: 14, bottom: preset.bottomMargin ?? 12 },
+        head: headRow,
+        body: bodyRows,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [30, 41, 59],
+          textColor: [255, 255, 255],
+          lineColor: LINE_BLACK,
+          lineWidth: HEAD_LINE_WIDTH,
+          fontSize: preset.headFontSize,
+          cellPadding: preset.headPadV,
+          fontStyle: 'bold',
+          halign: 'center',
+          valign: 'middle',
+        },
+        styles: {
+          fontSize: preset.fontSize,
+          cellPadding: preset.cellPadV,
+          textColor: [0, 0, 0],
+          lineColor: LINE_BLACK,
+          lineWidth: GRID_LINE_WIDTH,
+          valign: 'middle',
+          minCellHeight: preset.minCellHeight,
+        },
+        columnStyles: colStyles,
+      })
+    );
 
-    let nextY =
-      ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ||
-        currentY + 60) + 10;
-    if (nextY + 30 > pageHeight) {
+    let nextY = tableEndY + (tableEndY + 36 > pageHeight - 4 ? 7 : 9);
+    if (nextY + 29 > pageHeight - 3) {
       doc.addPage();
       nextY = 22;
     }

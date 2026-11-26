@@ -812,10 +812,13 @@ export const ExamJournalSheet: React.FC<ExamJournalSheetProps> = ({
     record.signatureDateText || extractSignatureDateFromSettings(settings, '_____________________')
   ).trim();
 
+  const totalSessionRows = dayGroups.reduce((acc, dg) => acc + Math.max(1, dg.sessions.length), 0);
+  const journalRowPrintClass = totalSessionRows > 10 ? 'print:py-1 print:text-[10.5px]' : 'print:py-1.5';
+
   return (
-    <div className="space-y-3 text-black">
+    <div className="space-y-3 print:space-y-2 text-black">
       {/* Document Title matching uploaded image */}
-      <div className="text-center pb-1">
+      <div className="text-center pb-1 print:pb-0.5">
         <h2 className="text-sm font-bold text-black tracking-tight uppercase">
           JURNAL HARIAN {(settings.examTitle || 'UJIAN SEKOLAH').toUpperCase()}
         </h2>
@@ -830,7 +833,7 @@ export const ExamJournalSheet: React.FC<ExamJournalSheetProps> = ({
       </div>
 
       {/* Official Table Matching Uploaded Image Exactly */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto print:overflow-visible">
         <table className="w-full border-collapse border border-black text-xs text-black">
           <thead>
             <tr className="bg-[#d9d9d9] text-black font-bold text-center">
@@ -887,23 +890,23 @@ export const ExamJournalSheet: React.FC<ExamJournalSheetProps> = ({
                       <>
                         <td
                           rowSpan={dg.sessions.length}
-                          className="border border-black px-1.5 py-2 text-center align-middle"
+                          className={`border border-black px-1.5 py-2 ${journalRowPrintClass} text-center align-middle`}
                         >
                           {dg.dayNumber}
                         </td>
                         <td
                           rowSpan={dg.sessions.length}
-                          className="border border-black px-2 py-2 text-left align-middle leading-snug"
+                          className={`border border-black px-2 py-2 ${journalRowPrintClass} text-left align-middle leading-snug`}
                         >
                           {dg.day},<br />
                           {dg.date}
                         </td>
                       </>
                     )}
-                    <td className="border border-black px-2 py-2 align-middle">
+                    <td className={`border border-black px-2 py-2 ${journalRowPrintClass} align-middle`}>
                       {sch.subject}
                     </td>
-                    <td className="border border-black px-2 py-2 align-middle">
+                    <td className={`border border-black px-2 py-2 ${journalRowPrintClass} align-middle`}>
                       {blankMode ? (
                         ''
                       ) : (
@@ -929,22 +932,22 @@ export const ExamJournalSheet: React.FC<ExamJournalSheetProps> = ({
                         </>
                       )}
                     </td>
-                    <td className="border border-black px-1.5 py-2 text-center align-middle">
+                    <td className={`border border-black px-1.5 py-2 ${journalRowPrintClass} text-center align-middle`}>
                       {roomStudents.length}
                     </td>
-                    <td className="border border-black px-1.5 py-2 text-center align-middle">
+                    <td className={`border border-black px-1.5 py-2 ${journalRowPrintClass} text-center align-middle`}>
                       {blankMode ? '' : entry?.absentCount || ''}
                     </td>
-                    <td className="border border-black px-1.5 py-2 text-center align-middle">
+                    <td className={`border border-black px-1.5 py-2 ${journalRowPrintClass} text-center align-middle`}>
                       {blankMode ? '' : entry?.absentNumbers || ''}
                     </td>
-                    <td className="border border-black px-1.5 py-2 text-center align-middle">
+                    <td className={`border border-black px-1.5 py-2 ${journalRowPrintClass} text-center align-middle`}>
                       {blankMode ? '' : entry?.presentCount || ''}
                     </td>
-                    <td className="border border-black px-1.5 py-2 text-center align-middle">
+                    <td className={`border border-black px-1.5 py-2 ${journalRowPrintClass} text-center align-middle`}>
                       &nbsp;
                     </td>
-                    <td className="border border-black px-1.5 py-2 align-middle">
+                    <td className={`border border-black px-1.5 py-2 ${journalRowPrintClass} align-middle`}>
                       {blankMode ? '' : entry?.notes || ''}
                     </td>
                   </tr>
@@ -955,8 +958,8 @@ export const ExamJournalSheet: React.FC<ExamJournalSheetProps> = ({
         </table>
       </div>
 
-      {/* Bottom Right Kepala Sekolah Signature Block matching uploaded image */}
-      <div className="pt-5 flex justify-end">
+      {/* Bottom Right Kepala Sekolah Signature Block (kept on same sheet) */}
+      <div className="pt-5 print:pt-2 flex justify-end print-keep-with-prev">
         <div className="w-60 text-left text-xs text-black">
           <p>
             {cityLabel}, {dateLine}
@@ -965,7 +968,7 @@ export const ExamJournalSheet: React.FC<ExamJournalSheetProps> = ({
           <OfficialSignatureGraphic
             signatureUrl={settings.headmasterSignature}
             stampUrl={settings.schoolStamp}
-            heightClass="h-14"
+            heightClass="h-14 print:h-11"
             align="left"
           />
           <p className="font-bold">{settings.headmaster}</p>
@@ -1017,9 +1020,9 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
       : getRoomDaySessionInvigilator(room, dayGroup.dayKey, scheduleId, settings);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 print:space-y-2">
       {/* Header Title */}
-      <div className="text-center pb-1">
+      <div className="text-center pb-1 print:pb-0">
         <div className="inline-flex items-center gap-1.5 text-2xs font-bold uppercase tracking-widest text-slate-500 mb-0.5">
           <FileCheck2 className="w-3.5 h-3.5" />
           <span>Dokumen Serah Terima Panitia ⇄ Pengawas Ruang</span>
@@ -1036,7 +1039,7 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
       </div>
 
       {/* Narrative Opening Paragraph */}
-      <div className="bg-slate-50 border border-slate-800 rounded-md p-3 text-xs text-slate-900 leading-relaxed">
+      <div className="bg-slate-50 border border-slate-800 rounded-md p-3 print:p-2 text-xs text-slate-900 leading-relaxed print:leading-snug">
         Pada hari ini, <strong>{dayGroup.day}</strong> tanggal <strong>{dayGroup.date}</strong> (Hari ke-
         {dayGroup.dayNumber}), bertempat di Sekretariat Panitia <strong>{settings.schoolName}</strong>, telah
         dilaksanakan serah terima naskah soal dan kelengkapan berkas ujian untuk{' '}
@@ -1049,8 +1052,8 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
 
       {/* STAGE I: PANITIA -> PENGAWAS */}
       {(directionMode === 'both' || directionMode === 'to-invigilator') && (
-        <div className="border border-slate-900 rounded-md overflow-hidden">
-          <div className="bg-slate-900 text-white px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="border border-slate-900 rounded-md overflow-hidden print-keep-together">
+          <div className="bg-slate-900 text-white px-3 py-2 print:py-1.5 flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-bold uppercase tracking-wide">
               I. Serah Terima Dari Panitia ke Pengawas Ruang (Pengambilan Naskah & Berkas)
             </span>
@@ -1059,7 +1062,7 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
             </span>
           </div>
 
-          <div className="p-3 space-y-2.5 bg-white">
+          <div className="p-3 print:p-2 space-y-2.5 print:space-y-1.5 bg-white">
             <div className="flex flex-wrap justify-between gap-2 text-2xs text-slate-800 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-700">
               <span>
                 <strong>Pihak I (Menyerahkan):</strong> {record.committeeOfficerOut || settings.committeeHead} (Panitia)
@@ -1123,17 +1126,17 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
             </p>
 
             {/* Stage I Signatures */}
-            <div className="pt-2 grid grid-cols-2 gap-6 text-center text-2xs text-slate-900">
+            <div className="pt-2 print:pt-1 grid grid-cols-2 gap-6 text-center text-2xs text-slate-900 print-keep-with-prev">
               <div>
                 <p>Yang Menyerahkan,</p>
                 <p className="font-bold">Petugas / Panitia Ujian</p>
-                <div className="h-11" />
+                <div className="h-11 print:h-8" />
                 <p className="font-bold underline">({record.committeeOfficerOut || settings.committeeHead})</p>
               </div>
               <div>
                 <p>Yang Menerima,</p>
                 <p className="font-bold">Pengawas {room.name}</p>
-                <div className="h-11" />
+                <div className="h-11 print:h-8" />
                 <p className="font-bold underline">({invigilatorLabel || '....................................'})</p>
                 {invigilatorNipLabel && (
                   <p className="text-[10px] font-mono text-slate-700">NIP. {invigilatorNipLabel}</p>
@@ -1146,8 +1149,8 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
 
       {/* STAGE II: PENGAWAS -> PANITIA */}
       {(directionMode === 'both' || directionMode === 'to-committee') && (
-        <div className="border border-slate-900 rounded-md overflow-hidden">
-          <div className="bg-teal-800 text-white px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="border border-slate-900 rounded-md overflow-hidden print-keep-together print-keep-with-next">
+          <div className="bg-teal-800 text-white px-3 py-2 print:py-1.5 flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-bold uppercase tracking-wide">
               II. Serah Terima Dari Pengawas Ruang ke Panitia (Pengembalian Hasil & Berkas Ujian)
             </span>
@@ -1156,7 +1159,7 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
             </span>
           </div>
 
-          <div className="p-3 space-y-2.5 bg-white">
+          <div className="p-3 print:p-2 space-y-2.5 print:space-y-1.5 bg-white">
             <div className="flex flex-wrap justify-between gap-2 text-2xs text-slate-800 bg-teal-50/60 px-2.5 py-1.5 rounded border border-slate-700">
               <span>
                 <strong>Pihak I (Menyerahkan):</strong> Pengawas {room.name} ({invigilatorLabel || '-'})
@@ -1221,11 +1224,11 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
             </p>
 
             {/* Stage II Signatures (Reversed) */}
-            <div className="pt-2 grid grid-cols-2 gap-6 text-center text-2xs text-slate-900">
+            <div className="pt-2 print:pt-1 grid grid-cols-2 gap-6 text-center text-2xs text-slate-900 print-keep-with-prev">
               <div>
                 <p>Yang Menyerahkan,</p>
                 <p className="font-bold">Pengawas {room.name}</p>
-                <div className="h-11" />
+                <div className="h-11 print:h-8" />
                 <p className="font-bold underline">({invigilatorLabel || '....................................'})</p>
                 {invigilatorNipLabel && (
                   <p className="text-[10px] font-mono text-slate-700">NIP. {invigilatorNipLabel}</p>
@@ -1234,7 +1237,7 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
               <div>
                 <p>Yang Menerima,</p>
                 <p className="font-bold">Petugas / Panitia Ujian</p>
-                <div className="h-11" />
+                <div className="h-11 print:h-8" />
                 <p className="font-bold underline">({record.committeeOfficerIn || settings.committeeHead})</p>
               </div>
             </div>
@@ -1242,8 +1245,8 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
         </div>
       )}
 
-      {/* Final Sign-off by Ketua Panitia */}
-      <div className="pt-3 border-t border-slate-800 text-center text-2xs text-slate-900">
+      {/* Final Sign-off by Ketua Panitia (kept on same sheet) */}
+      <div className="pt-3 print:pt-2 border-t border-slate-800 text-center text-2xs text-slate-900 print-keep-with-prev">
         <p className="text-slate-700">
           {extractCityFromSettings(settings)}, {extractSignatureDateFromSettings(settings)}
         </p>
@@ -1252,7 +1255,7 @@ export const ExamHandoverSheet: React.FC<ExamHandoverSheetProps> = ({
         <OfficialSignatureGraphic
           signatureUrl={settings.committeeSignature}
           stampUrl={settings.schoolStamp}
-          heightClass="h-12"
+          heightClass="h-12 print:h-10"
         />
         <p className="font-bold underline text-xs">{settings.committeeHead}</p>
         <p className="text-slate-700 font-mono">NIP. {settings.committeeNip || '-'}</p>

@@ -14,6 +14,8 @@ import {
   Tag,
   Grid,
   UserCheck,
+  LayoutGrid,
+  Users,
 } from 'lucide-react';
 import { Student, Room, ExamSettings, ExamScheduleItem, PaperSize } from '../types';
 import {
@@ -30,6 +32,10 @@ import {
   exportAttendance2PdfForTarget,
   exportBundledAttendance2PdfForTargets,
   exportDoorPosterPdf,
+  exportSeatingPlanPdf,
+  exportAllSeatingPlansPdf,
+  exportRoomParticipantsPdf,
+  exportAllRoomParticipantsPdf,
   exportExamCardsPdf,
   exportDeskCardsPdf,
   exportSchedulePdf,
@@ -60,6 +66,7 @@ interface ExportCenterProps {
   schedules?: ExamScheduleItem[];
   onUpdateSettings?: (newSettings: ExamSettings) => void;
   onRestoreBackup?: (data: ExamBackupData, sourceFormat: 'json' | 'sql') => void;
+  onOpenPrintPreview?: (docType: 'seating' | 'room-participants', roomId?: string) => void;
 }
 
 export const ExportCenter: React.FC<ExportCenterProps> = ({
@@ -69,6 +76,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
   schedules = [],
   onUpdateSettings,
   onRestoreBackup,
+  onOpenPrintPreview,
 }) => {
   const orderedClasses = useMemo(
     () => getOrderedClassNames(students, settings.customClassOrder),
@@ -93,6 +101,8 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
     useState<boolean>(true);
 
   const [selectedRoomForDoor, setSelectedRoomForDoor] = useState<string>(rooms[0]?.id || '');
+  const [selectedRoomForSeating, setSelectedRoomForSeating] = useState<string>('ALL');
+  const [selectedRoomForParticipants, setSelectedRoomForParticipants] = useState<string>('ALL');
   const [selectedRoomForCards, setSelectedRoomForCards] = useState<string>('ALL');
   const [selectedRoomForDeskCards, setSelectedRoomForDeskCards] = useState<string>('ALL');
   const [selectedClassForDeskCards, setSelectedClassForDeskCards] = useState<string>('ALL');
@@ -273,6 +283,40 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
       }
     } catch (e: unknown) {
       showSuccess('Gagal mengekspor PDF: ' + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
+  const handleExportSeatingPdf = () => {
+    try {
+      if (selectedRoomForSeating === 'ALL') {
+        exportAllSeatingPlansPdf(rooms, students, effectiveSettings);
+        showSuccess(`Denah Tempat Duduk PDF (${rooms.length} Ruang) berhasil diunduh!`);
+      } else {
+        const targetRoom = rooms.find((r) => r.id === selectedRoomForSeating);
+        if (targetRoom) {
+          exportSeatingPlanPdf(targetRoom, students, effectiveSettings);
+          showSuccess(`Denah Tempat Duduk PDF untuk ${targetRoom.name} berhasil diunduh!`);
+        }
+      }
+    } catch (e: unknown) {
+      showSuccess('Gagal mengekspor Denah PDF: ' + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
+  const handleExportRoomParticipantsPdf = () => {
+    try {
+      if (selectedRoomForParticipants === 'ALL') {
+        exportAllRoomParticipantsPdf(rooms, students, effectiveSettings);
+        showSuccess(`Data Peserta Ujian Tiap Ruang (${rooms.length} Ruang) berhasil diunduh!`);
+      } else {
+        const targetRoom = rooms.find((r) => r.id === selectedRoomForParticipants);
+        if (targetRoom) {
+          exportRoomParticipantsPdf(targetRoom, students, effectiveSettings);
+          showSuccess(`Data Peserta Ujian ${targetRoom.name} berhasil diunduh!`);
+        }
+      }
+    } catch (e: unknown) {
+      showSuccess('Gagal mengekspor Data Peserta: ' + (e instanceof Error ? e.message : String(e)));
     }
   };
 
@@ -809,6 +853,137 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
             >
               <Download className="w-3.5 h-3.5" />
               <span>Unduh Tempelan Pintu PDF</span>
+            </button>
+          </div>
+        </div>
+
+        {/* PDF SEATING PLAN (DENAH TEMPAT DUDUK) SECTION */}
+        <div className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-700">
+                <LayoutGrid className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Denah Tempat Duduk (PDF)</h2>
+                <p className="text-xs text-slate-500">
+                  Peta posisi kursi peserta &amp; meja pengawas siap tempel per ruang
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Pilih Ruang Ujian:
+                </label>
+                <select
+                  value={selectedRoomForSeating}
+                  onChange={(e) => setSelectedRoomForSeating(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none"
+                >
+                  <option value="ALL">Semua Ruang (Bundel {rooms.length} Halaman)</option>
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} ({r.code}) - {r.capacity} Kursi ({r.columns} Kolom)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-slate-600">
+                Format 1 halaman penuh per ruang ({activePaperSpec.shortLabel}) lengkap dengan Kop Surat resmi, papan tulis, meja pengawas, warna kelas, dan TTD pengawas ruang.
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
+            {onOpenPrintPreview && (
+              <button
+                onClick={() =>
+                  onOpenPrintPreview(
+                    'seating',
+                    selectedRoomForSeating === 'ALL' ? rooms[0]?.id : selectedRoomForSeating
+                  )
+                }
+                className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-md transition-colors"
+              >
+                <Printer className="w-3.5 h-3.5 text-slate-500" />
+                <span>Cetak / Pratinjau</span>
+              </button>
+            )}
+            <button
+              onClick={handleExportSeatingPdf}
+              disabled={!isAllocated}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 rounded-md shadow-sm transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Unduh Denah PDF</span>
+            </button>
+          </div>
+        </div>
+
+        {/* PDF & PRINT DATA PESERTA TIAP RUANG SECTION */}
+        <div className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900">
+                  Data Peserta Ujian Tiap Ruang (PDF &amp; Cetak)
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Daftar lengkap peserta per ruang (No. Meja, No. Peserta, NIS, NISN, Kelas, L/P)
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Pilih Ruang Ujian:
+                </label>
+                <select
+                  value={selectedRoomForParticipants}
+                  onChange={(e) => setSelectedRoomForParticipants(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md focus:border-slate-900 focus:outline-none"
+                >
+                  <option value="ALL">Semua Ruang (Bundel {rooms.length} Ruang)</option>
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} ({r.code}) - {students.filter((s) => s.roomId === r.id).length} Peserta
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-slate-600">
+                Memuat Kop Surat resmi, informasi pengawas ruang, daftar lengkap peserta beserta NISN, rekap jumlah siswa L/P per kelas, serta pengesahan Ketua Panitia &amp; Kepala Sekolah.
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
+            {onOpenPrintPreview && (
+              <button
+                onClick={() =>
+                  onOpenPrintPreview('room-participants', selectedRoomForParticipants)
+                }
+                className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-md transition-colors"
+              >
+                <Printer className="w-3.5 h-3.5 text-slate-500" />
+                <span>Cetak / Pratinjau</span>
+              </button>
+            )}
+            <button
+              onClick={handleExportRoomParticipantsPdf}
+              disabled={!isAllocated}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 rounded-md shadow-sm transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Unduh Data Peserta PDF</span>
             </button>
           </div>
         </div>

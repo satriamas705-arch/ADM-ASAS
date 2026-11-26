@@ -6,7 +6,7 @@ import { StudentListTable } from './components/StudentListTable';
 import { StudentManagement } from './components/StudentManagement';
 import { RoomManagement } from './components/RoomManagement';
 import { ScheduleManagement } from './components/ScheduleManagement';
-import { RulesAndPreviewMenu } from './components/RulesAndPreviewMenu';
+import { RulesAndPreviewMenu, PreviewDocType } from './components/RulesAndPreviewMenu';
 import { ExportCenter } from './components/ExportCenter';
 import { ParticipantCirculation } from './components/ParticipantCirculation';
 import { StudentSearchModal } from './components/StudentSearchModal';
@@ -75,6 +75,20 @@ export default function App() {
   const [activeSearchStudent, setActiveSearchStudent] = useState<Student | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [restoreRevision, setRestoreRevision] = useState<number>(0);
+  const [previewLaunchConfig, setPreviewLaunchConfig] = useState<{
+    docType: PreviewDocType;
+    roomId?: string;
+    nonce: number;
+  } | null>(null);
+
+  const handleOpenPrintPreview = (docType: PreviewDocType, roomId?: string) => {
+    setPreviewLaunchConfig((prev) => ({
+      docType,
+      roomId,
+      nonce: (prev?.nonce || 0) + 1,
+    }));
+    setActiveTab('rules');
+  };
 
   // Sync state to LocalStorage
   useEffect(() => {
@@ -505,6 +519,7 @@ export default function App() {
             selectedRoomId={selectedRoomId || rooms[0]?.id || ''}
             onSelectRoom={setSelectedRoomId}
             onSwapStudents={handleSwapStudents}
+            onOpenPrintPreview={handleOpenPrintPreview}
           />
         )}
 
@@ -569,6 +584,9 @@ export default function App() {
             onUpdateSettingsOnly={setSettings}
             onUpdateRooms={handleUpdateRoomsAndReallocate}
             onUpdateRoomsMeta={handleUpdateRoomsMeta}
+            initialPreviewDoc={previewLaunchConfig?.docType}
+            initialPreviewRoomId={previewLaunchConfig?.roomId}
+            previewRequestNonce={previewLaunchConfig?.nonce}
           />
         )}
 
@@ -580,6 +598,7 @@ export default function App() {
             schedules={schedules}
             onUpdateSettings={setSettings}
             onRestoreBackup={handleRestoreBackup}
+            onOpenPrintPreview={handleOpenPrintPreview}
           />
         )}
       </main>
