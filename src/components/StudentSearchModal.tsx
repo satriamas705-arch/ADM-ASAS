@@ -313,7 +313,7 @@ export const StudentSearchModal: React.FC<StudentSearchModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors"
+            className="px-4 py-2 text-xs font-semibold theme-btn-primary rounded-md transition-colors"
           >
             Tutup
           </button>

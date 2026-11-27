@@ -118,6 +118,7 @@ export const defaultExamSettings: ExamSettings = {
   signatureCity: 'Jakarta Pusat',
   signatureDate: '20 Oktober 2026',
   paperSize: 'a4',
+  uiTheme: 'dynamic-auto',
 };
 
 export const defaultRooms: Room[] = [

@@ -156,7 +156,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
 
         <button
           onClick={openAddModal}
-          className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors"
+          className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold theme-btn-primary rounded-md transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Tambah Ruangan Baru</span>
@@ -441,7 +441,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors"
+                  className="px-4 py-2 text-xs font-semibold theme-btn-primary rounded-md transition-colors"
                 >
                   Simpan Ruangan
                 </button>

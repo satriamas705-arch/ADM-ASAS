@@ -1009,7 +1009,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                 <button
                   type="button"
                   onClick={() => handleSaveSettings()}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors shadow-2xs"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold theme-btn-primary rounded-md transition-colors shadow-2xs"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>Simpan Aturan</span>
@@ -1170,7 +1170,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                     <button
                       type="button"
                       onClick={() => handleApplyRoomCount(targetRoomsInput)}
-                      className="px-3 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors shadow-2xs"
+                      className="px-3 py-1.5 text-xs font-bold theme-btn-primary rounded-md transition-colors shadow-2xs"
                     >
                       Terapkan {targetRoomsInput} Ruang
                     </button>
@@ -1686,7 +1686,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                 <button
                   type="button"
                   onClick={handleApplyUniformCapacity}
-                  className="px-4 py-2 font-bold text-xs bg-slate-900 text-white hover:bg-slate-800 rounded-md whitespace-nowrap shadow-xs transition-colors shrink-0"
+                  className="px-4 py-2 font-bold text-xs theme-btn-primary rounded-md whitespace-nowrap shadow-xs transition-colors shrink-0"
                 >
                   Terapkan ke Semua Ruang
                 </button>
@@ -1714,7 +1714,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
               <button
                 type="button"
                 onClick={() => handleSaveSettings()}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors shadow-2xs"
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold theme-btn-primary rounded-md transition-colors shadow-2xs"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>Simpan Seluruh Aturan</span>
@@ -2395,7 +2395,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="submit"
-                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold theme-btn-primary rounded-md transition-colors"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>Simpan Identitas Kop &amp; Pengesahan</span>
@@ -2597,7 +2597,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                     onClick={() => setAttendanceGroupingMode('per-room-class')}
                     className={`px-2 py-1 text-2xs font-bold rounded transition-colors ${
                       attendanceGroupingMode === 'per-room-class'
-                        ? 'bg-slate-900 text-white'
+                        ? 'theme-nav-active'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -2608,7 +2608,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                     onClick={() => setAttendanceGroupingMode('per-room')}
                     className={`px-2 py-1 text-2xs font-bold rounded transition-colors ${
                       attendanceGroupingMode === 'per-room'
-                        ? 'bg-slate-900 text-white'
+                        ? 'theme-nav-active'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -2619,7 +2619,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                     onClick={() => setAttendanceGroupingMode('per-class')}
                     className={`px-2 py-1 text-2xs font-bold rounded transition-colors ${
                       attendanceGroupingMode === 'per-class'
-                        ? 'bg-slate-900 text-white'
+                        ? 'theme-nav-active'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -2871,7 +2871,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                     }
                   }
                 }}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors shadow-2xs"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold theme-btn-primary rounded-md transition-colors shadow-2xs"
                 title="Unduh PDF Resmi Dokumen Ini"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -3638,7 +3638,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                           onClick={() => setRoomParticipantsPrintAll(false)}
                           className={`px-2.5 py-1 text-2xs font-bold rounded transition-colors ${
                             !roomParticipantsPrintAll
-                              ? 'bg-slate-900 text-white'
+                              ? 'theme-nav-active'
                               : 'text-slate-600 hover:text-slate-900'
                           }`}
                         >
@@ -3649,7 +3649,7 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                           onClick={() => setRoomParticipantsPrintAll(true)}
                           className={`px-2.5 py-1 text-2xs font-bold rounded transition-colors ${
                             roomParticipantsPrintAll
-                              ? 'bg-slate-900 text-white'
+                              ? 'theme-nav-active'
                               : 'text-slate-600 hover:text-slate-900'
                           }`}
                         >
@@ -3758,16 +3758,18 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                               </span>
                             </div>
                             <div className="flex">
-                              <span className="w-32 text-slate-600 shrink-0">Pengawas Ruang</span>
-                              <span className="font-semibold text-slate-900">
-                                : {roomItem.invigilator1 || '-'}
-                                {roomItem.invigilator1Nip ? ` (NIP. ${roomItem.invigilator1Nip})` : ''}
-                              </span>
-                            </div>
-                            <div className="flex">
                               <span className="w-32 text-slate-600 shrink-0">Rentang No. Peserta</span>
                               <span className="font-mono font-semibold text-slate-900">
                                 : {pRange}
+                              </span>
+                            </div>
+                            <div className="flex">
+                              <span className="w-32 text-slate-600 shrink-0">Komposisi Kelas</span>
+                              <span className="font-semibold text-slate-900">
+                                :{' '}
+                                {Array.from(clsMap.entries())
+                                  .map(([cls, st]) => `${cls} (${st.total})`)
+                                  .join(', ') || '-'}
                               </span>
                             </div>
                           </div>
@@ -3855,20 +3857,6 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                           <div className="pt-4 print:pt-2 grid grid-cols-2 gap-8 text-center text-xs text-slate-900 print-keep-with-prev">
                             <div>
                               <p>Mengetahui,</p>
-                              <p className="font-semibold">Ketua Panitia Ujian,</p>
-                              <OfficialSignatureGraphic
-                                signatureUrl={settings.committeeSignature}
-                                heightClass="h-14 print:h-11"
-                              />
-                              <p className="font-bold underline">{settings.committeeHead || '-'}</p>
-                              <p className="text-2xs font-mono text-slate-700">
-                                NIP. {settings.committeeNip || '-'}
-                              </p>
-                            </div>
-                            <div>
-                              <p>
-                                {extractCityFromSettings(settings)}, {extractSignatureDateFromSettings(settings)}
-                              </p>
                               <p className="font-semibold">Kepala Sekolah,</p>
                               <OfficialSignatureGraphic
                                 signatureUrl={settings.headmasterSignature}
@@ -3878,6 +3866,20 @@ export const RulesAndPreviewMenu: React.FC<RulesAndPreviewMenuProps> = ({
                               <p className="font-bold underline">{settings.headmaster || '-'}</p>
                               <p className="text-2xs font-mono text-slate-700">
                                 NIP. {settings.headmasterNip || '-'}
+                              </p>
+                            </div>
+                            <div>
+                              <p>
+                                {extractCityFromSettings(settings)}, {extractSignatureDateFromSettings(settings)}
+                              </p>
+                              <p className="font-semibold">Ketua Panitia Ujian,</p>
+                              <OfficialSignatureGraphic
+                                signatureUrl={settings.committeeSignature}
+                                heightClass="h-14 print:h-11"
+                              />
+                              <p className="font-bold underline">{settings.committeeHead || '-'}</p>
+                              <p className="text-2xs font-mono text-slate-700">
+                                NIP. {settings.committeeNip || '-'}
                               </p>
                             </div>
                           </div>

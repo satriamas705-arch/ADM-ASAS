@@ -32,6 +32,7 @@ import {
   exportRoomParticipantsPdf,
 } from '../utils/exportPdf';
 import { allocateStudentsToRooms } from '../utils/allocator';
+import { resolveThemeTokens } from '../utils/uiThemes';
 import {
   ResponsiveContainer,
   BarChart,
@@ -69,6 +70,7 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
 }) => {
   const isAllocated = summary.allocatedStudents > 0;
   const isCapacitySufficient = summary.totalCapacity >= summary.totalStudents;
+  const themeTokens = resolveThemeTokens(settings.uiTheme, 'dashboard');
 
   // Data for Recharts comparison
   const chartData = summary.roomBreakdowns.map((rb) => ({
@@ -230,10 +232,10 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
 
       {/* KPI Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-lg p-4">
+        <div className="theme-surface border rounded-lg p-4 theme-kpi-strip">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500">Total Siswa Terdaftar</span>
-            <Users className="w-4 h-4 text-slate-400" />
+            <Users className="w-4 h-4 theme-accent-icon" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
@@ -243,10 +245,10 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-lg p-4">
+        <div className="theme-surface border rounded-lg p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500">Kapasitas Kursi Total</span>
-            <Armchair className="w-4 h-4 text-slate-400" />
+            <Armchair className="w-4 h-4 theme-accent-icon" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
@@ -256,7 +258,7 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-lg p-4">
+        <div className="theme-surface border rounded-lg p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500">Siswa Teralokasi</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -271,10 +273,10 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-lg p-4">
+        <div className="theme-surface border rounded-lg p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500">Sisa Kursi Kosong</span>
-            <Building2 className="w-4 h-4 text-slate-400" />
+            <Building2 className="w-4 h-4 theme-accent-icon" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-mono tabular-nums text-slate-700">
@@ -300,14 +302,14 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
       )}
 
       {/* Control Panel: Konfigurasi Pembagian Ruang Ujian Otomatis */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-5">
+      <div className="theme-surface border rounded-lg p-5 space-y-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-slate-900">
                 Konfigurasi Pembagian Ruang Ujian Otomatis
               </h2>
-              <span className="text-2xs font-bold px-2 py-0.5 rounded-full bg-slate-900 text-white font-mono">
+              <span className="text-2xs font-bold px-2 py-0.5 rounded theme-accent-badge border font-mono">
                 5 METODE TERSEDIA
               </span>
             </div>
@@ -329,7 +331,7 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
 
             <button
               onClick={onRunAllocation}
-              className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md shadow-sm transition-colors"
+              className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold theme-btn-primary rounded-md shadow-sm"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
               <span>Jalankan Pembagian Otomatis</span>
@@ -343,13 +345,13 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
           <label
             className={`relative flex flex-col p-3.5 rounded-lg border cursor-pointer transition-all ${
               settings.sortMethod === 'class-order'
-                ? 'border-slate-900 bg-slate-50 ring-2 ring-slate-900/10 shadow-2xs'
+                ? 'theme-card-active'
                 : 'border-slate-200 hover:border-slate-300 bg-white'
             }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <GraduationCap className="w-3.5 h-3.5 text-slate-700" />
+                <GraduationCap className="w-3.5 h-3.5 theme-accent-icon" />
                 Urutan Kelas
               </span>
               <input
@@ -361,7 +363,7 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
                 className="text-slate-900 focus:ring-slate-900"
               />
             </div>
-            <span className="text-2xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.5 mt-1.5 inline-block w-fit">
+            <span className="text-2xs font-bold theme-accent-badge border rounded px-1.5 py-0.5 mt-1.5 inline-block w-fit">
               STANDAR SEKOLAH / ROMBEL
             </span>
             <p className="text-2xs text-slate-600 mt-1.5 leading-relaxed">
@@ -373,13 +375,13 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
           <label
             className={`relative flex flex-col p-3.5 rounded-lg border cursor-pointer transition-all ${
               settings.sortMethod === 'nis-cross-class'
-                ? 'border-slate-900 bg-slate-50 ring-2 ring-slate-900/10 shadow-2xs'
+                ? 'theme-card-active'
                 : 'border-slate-200 hover:border-slate-300 bg-white'
             }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <Shuffle className="w-3.5 h-3.5 text-slate-700" />
+                <Shuffle className="w-3.5 h-3.5 theme-accent-icon" />
                 Silang Rombel
               </span>
               <input
@@ -403,13 +405,13 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
           <label
             className={`relative flex flex-col p-3.5 rounded-lg border cursor-pointer transition-all ${
               settings.sortMethod === 'nis-asc'
-                ? 'border-slate-900 bg-slate-50 ring-2 ring-slate-900/10 shadow-2xs'
+                ? 'theme-card-active'
                 : 'border-slate-200 hover:border-slate-300 bg-white'
             }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <ListOrdered className="w-3.5 h-3.5 text-slate-700" />
+                <ListOrdered className="w-3.5 h-3.5 theme-accent-icon" />
                 Urut NIS Kecil
               </span>
               <input
@@ -433,13 +435,13 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
           <label
             className={`relative flex flex-col p-3.5 rounded-lg border cursor-pointer transition-all ${
               settings.sortMethod === 'nis-odd-even'
-                ? 'border-slate-900 bg-slate-50 ring-2 ring-slate-900/10 shadow-2xs'
+                ? 'theme-card-active'
                 : 'border-slate-200 hover:border-slate-300 bg-white'
             }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-slate-700" />
+                <Layers className="w-3.5 h-3.5 theme-accent-icon" />
                 Ganjil - Genap
               </span>
               <input
@@ -463,13 +465,13 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
           <label
             className={`relative flex flex-col p-3.5 rounded-lg border cursor-pointer transition-all ${
               settings.sortMethod === 'nis-desc'
-                ? 'border-slate-900 bg-slate-50 ring-2 ring-slate-900/10 shadow-2xs'
+                ? 'theme-card-active'
                 : 'border-slate-200 hover:border-slate-300 bg-white'
             }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <ListOrdered className="w-3.5 h-3.5 text-slate-700" />
+                <ListOrdered className="w-3.5 h-3.5 theme-accent-icon" />
                 Urut NIS Besar
               </span>
               <input
@@ -492,10 +494,10 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
 
         {/* Dedicated Panel: Konfigurasi Lanjutan Pembagian Berdasarkan Urutan Kelas */}
         {settings.sortMethod === 'class-order' && (
-          <div className="bg-slate-50 border border-indigo-200/80 rounded-xl p-4 sm:p-5 space-y-4 animate-in fade-in duration-200">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-100">
+          <div className="theme-surface-alt border rounded-xl p-4 sm:p-5 space-y-4 animate-in fade-in duration-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg theme-brand-mark flex items-center justify-center shrink-0">
                   <GraduationCap className="w-4 h-4" />
                 </div>
                 <div>
@@ -561,7 +563,7 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
                       key={clsName}
                       className="bg-white border border-slate-300 rounded-lg p-2 flex items-center gap-2 shadow-2xs hover:border-slate-400 transition-colors"
                     >
-                      <span className="w-5 h-5 rounded-full bg-slate-900 text-white font-mono font-bold text-2xs flex items-center justify-center shrink-0">
+                      <span className="w-5 h-5 rounded-full theme-brand-mark font-mono font-bold text-2xs flex items-center justify-center shrink-0">
                         {idx + 1}
                       </span>
                       <div className="pr-1">
@@ -795,14 +797,14 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
       </div>
 
       {/* Visual Recharts Bar Chart: Perbandingan Kapasitas vs Siswa Teralokasi */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-4">
+      <div className="theme-surface border rounded-lg p-5 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-slate-900">
                 Visualisasi Kapasitas vs Siswa Teralokasi Tiap Ruangan
               </h2>
-              <span className="text-2xs font-mono font-bold px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-slate-700">
+              <span className="text-2xs font-mono font-bold px-2 py-0.5 theme-accent-badge border rounded">
                 Recharts Bar Chart
               </span>
             </div>
@@ -812,13 +814,13 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
           </div>
 
           <div className="flex items-center gap-3 text-xs">
-            <div className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-md font-mono">
+            <div className="px-2.5 py-1 theme-surface-alt border rounded-md font-mono">
               <span className="text-slate-500 text-2xs block">KETERISIAN TOTAL</span>
-              <strong className="text-slate-900">{avgOccupancy}%</strong>
+              <strong className="theme-accent-text">{avgOccupancy}%</strong>
             </div>
-            <div className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-md font-mono">
+            <div className="px-2.5 py-1 theme-surface-alt border rounded-md font-mono">
               <span className="text-slate-500 text-2xs block">RUANG PENUH</span>
-              <strong className="text-slate-900">{fullRooms} / {rooms.length} Ruang</strong>
+              <strong className="theme-accent-text">{fullRooms} / {rooms.length} Ruang</strong>
             </div>
           </div>
         </div>
@@ -856,21 +858,21 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
                 <Bar
                   dataKey="kapasitas"
                   name="Kapasitas Kursi (Aturan)"
-                  fill="#94a3b8"
+                  fill={themeTokens.chartCap}
                   radius={[4, 4, 0, 0]}
                   maxBarSize={40}
                 />
                 <Bar
                   dataKey="teralokasi"
                   name="Siswa Teralokasi (Terisi)"
-                  fill="#0f172a"
+                  fill={themeTokens.chartBar}
                   radius={[4, 4, 0, 0]}
                   maxBarSize={40}
                 />
                 <Bar
                   dataKey="kosong"
                   name="Sisa Kursi Kosong"
-                  fill="#e2e8f0"
+                  fill={themeTokens.chartEmpty}
                   radius={[4, 4, 0, 0]}
                   maxBarSize={40}
                 />
@@ -930,13 +932,13 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
             return (
               <div
                 key={rb.room.id}
-                className="bg-white border border-slate-200 rounded-lg p-4 flex flex-col justify-between hover:border-slate-300 transition-colors"
+                className="theme-surface border rounded-lg p-4 flex flex-col justify-between hover:border-slate-300 transition-colors"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded text-slate-800">
+                        <span className="font-mono text-xs font-bold px-1.5 py-0.5 theme-accent-badge border rounded">
                           {rb.room.code}
                         </span>
                         <h3 className="text-base font-bold text-slate-900">{rb.room.name}</h3>
@@ -956,7 +958,7 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
                   <div className="mt-3 w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${
-                        isFull ? 'bg-slate-900' : rb.allocatedCount > 0 ? 'bg-emerald-600' : 'bg-slate-300'
+                        isFull ? 'theme-progress-fill' : rb.allocatedCount > 0 ? 'bg-emerald-600' : 'bg-slate-300'
                       }`}
                       style={{ width: `${Math.min(100, rb.occupancyRate)}%` }}
                     />
@@ -992,10 +994,10 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
                       {rb.classCounts.map((cc) => (
                         <span
                           key={cc.className}
-                          className="inline-flex items-center gap-1 text-2xs font-medium px-2 py-0.5 rounded bg-indigo-50/70 border border-indigo-200 text-indigo-900"
+                          className="inline-flex items-center gap-1 text-2xs font-medium px-2 py-0.5 rounded theme-accent-badge border"
                         >
                           <span className="font-bold">{cc.className}</span>
-                          <span className="text-indigo-600 font-mono">({cc.count} siswa)</span>
+                          <span className="font-mono opacity-85">({cc.count} siswa)</span>
                         </span>
                       ))}
                     </div>
@@ -1006,7 +1008,7 @@ export const AllocationDashboard: React.FC<AllocationDashboardProps> = ({
                 <div className="mt-3 pt-2 flex items-center justify-between gap-2 text-xs">
                   <button
                     onClick={() => onSelectRoomForSeating(rb.room.id)}
-                    className="font-semibold text-slate-900 hover:text-slate-700 flex items-center gap-1"
+                    className="font-semibold theme-accent-text hover:opacity-80 flex items-center gap-1"
                   >
                     <span>Denah Kursi</span>
                     <ArrowRight className="w-3.5 h-3.5" />

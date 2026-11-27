@@ -444,7 +444,7 @@ export const HandoverControlBar: React.FC<HandoverControlBarProps> = ({
               onClick={() => onSelectDayKey(dg.dayKey)}
               className={`px-2.5 py-1 text-xs font-semibold rounded-md border transition-colors ${
                 dg.dayKey === selectedDayGroup.dayKey
-                  ? 'bg-slate-900 text-white border-slate-900'
+                  ? 'theme-nav-active border-transparent'
                   : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
               }`}
             >
@@ -501,7 +501,7 @@ export const HandoverControlBar: React.FC<HandoverControlBarProps> = ({
             onClick={() => onChangeDirectionMode('both')}
             className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md border transition-colors ${
               directionMode === 'both'
-                ? 'bg-slate-900 text-white border-slate-900'
+                ? 'theme-nav-active border-transparent'
                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
             }`}
           >
@@ -514,7 +514,7 @@ export const HandoverControlBar: React.FC<HandoverControlBarProps> = ({
             onClick={() => onChangeDirectionMode('to-invigilator')}
             className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md border transition-colors ${
               directionMode === 'to-invigilator'
-                ? 'bg-slate-900 text-white border-slate-900'
+                ? 'theme-nav-active border-transparent'
                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
             }`}
           >

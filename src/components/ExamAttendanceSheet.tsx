@@ -117,7 +117,7 @@ export const AttendanceControlBar: React.FC<AttendanceControlBarProps> = ({
           onClick={onToggleEditing}
           className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md border transition-colors ${
             isEditing
-              ? 'bg-slate-900 text-white border-slate-900'
+              ? 'theme-nav-active border-transparent'
               : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
           }`}
         >

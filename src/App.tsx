@@ -11,14 +11,15 @@ import { ExportCenter } from './components/ExportCenter';
 import { ParticipantCirculation } from './components/ParticipantCirculation';
 import { StudentSearchModal } from './components/StudentSearchModal';
 import { SettingsModal } from './components/SettingsModal';
-import { Student, Room, ExamSettings, ExamScheduleItem } from './types';
+import { Student, Room, ExamSettings, ExamScheduleItem, UiThemeId } from './types';
 import { defaultExamSettings, defaultRooms, sampleStudents, defaultExamSchedule } from './utils/sampleData';
 import { allocateStudentsToRooms } from './utils/allocator';
 import { applyCirculationDayToStudents, CirculationPattern } from './utils/circulation';
 import { syncStoredDocumentsWithSettings } from './utils/examDocuments';
 import { ExamBackupData, persistDocumentExtrasFromBackup } from './utils/backupRestore';
 import { ensureTransparentStampDataUrl } from './utils/imageTransparency';
-import { Check, Sparkles } from 'lucide-react';
+import { applyThemeCssVars, resolveThemeTokens } from './utils/uiThemes';
+import { Check } from 'lucide-react';
 
 export default function App() {
   // Load state from localStorage or initial defaults
@@ -89,6 +90,12 @@ export default function App() {
     }));
     setActiveTab('rules');
   };
+
+  // Sync dynamic CSS theme variables when uiTheme or activeTab changes
+  useEffect(() => {
+    const tokens = resolveThemeTokens(settings.uiTheme, activeTab);
+    applyThemeCssVars(tokens);
+  }, [settings.uiTheme, activeTab]);
 
   // Sync state to LocalStorage
   useEffect(() => {
@@ -458,8 +465,12 @@ export default function App() {
     setIsSearchOpen(true);
   };
 
+  const handleChangeTheme = (uiTheme: UiThemeId) => {
+    setSettings((prev) => ({ ...prev, uiTheme }));
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
+    <div className="min-h-screen theme-canvas flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Top Header Contract */}
       <Header
         settings={settings}
@@ -470,13 +481,14 @@ export default function App() {
           setIsSearchOpen(true);
         }}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onChangeTheme={handleChangeTheme}
         isAllocated={summary.allocatedStudents > 0}
       />
 
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 border border-slate-700 animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <Check className="w-4 h-4 text-emerald-400" />
+          <Check className="w-4 h-4 theme-accent-icon" />
           <span>{toastMessage}</span>
         </div>
       )}

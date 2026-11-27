@@ -128,7 +128,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
 
           <button
             onClick={openAddModal}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-md shadow-sm transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold theme-btn-primary rounded-md shadow-sm transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Tambah Mata Pelajaran</span>
@@ -363,7 +363,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold theme-btn-primary rounded-md transition-colors"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>Simpan Jadwal</span>

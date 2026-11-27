@@ -168,7 +168,7 @@ export const BackupRestoreCard: React.FC<BackupRestoreCardProps> = ({
             type="button"
             disabled={isReading}
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-60 rounded-md shadow-sm transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold theme-btn-primary disabled:opacity-60 rounded-md shadow-sm transition-colors"
             title="Pilih file backup .json atau .sql untuk memulihkan data"
           >
             <Upload className="w-3.5 h-3.5" />

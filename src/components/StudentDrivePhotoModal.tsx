@@ -583,7 +583,7 @@ export const StudentDrivePhotoModal: React.FC<StudentDrivePhotoModalProps> = ({
                   type="button"
                   onClick={handleSyncAllSavedClasses}
                   disabled={Boolean(loadingClass)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 rounded-md transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold theme-btn-primary disabled:opacity-50 rounded-md transition-colors"
                 >
                   <RefreshCw
                     className={`w-3.5 h-3.5 ${loadingClass === '__ALL__' ? 'animate-spin' : ''}`}
@@ -690,7 +690,7 @@ export const StudentDrivePhotoModal: React.FC<StudentDrivePhotoModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors"
+            className="px-4 py-2 text-xs font-bold theme-btn-primary rounded-md transition-colors"
           >
             Selesai
           </button>

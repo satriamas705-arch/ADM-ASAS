@@ -413,7 +413,7 @@ export const ParticipantCirculation: React.FC<ParticipantCirculationProps> = ({
           <button
             type="button"
             onClick={handleExportPdf}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md shadow-xs transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold theme-btn-primary rounded-md shadow-xs transition-colors"
           >
             <FileText className="w-3.5 h-3.5" />
             <span>Unduh PDF Sirkulasi</span>
@@ -453,7 +453,7 @@ export const ParticipantCirculation: React.FC<ParticipantCirculationProps> = ({
             <button
               type="button"
               onClick={onRunAllocation}
-              className="flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors"
+              className="flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold theme-btn-primary rounded-md transition-colors"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
               <span>Pembagian Otomatis</span>
@@ -531,7 +531,7 @@ export const ParticipantCirculation: React.FC<ParticipantCirculationProps> = ({
             onClick={() => setActiveSubTab('matrix')}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
               activeSubTab === 'matrix'
-                ? 'bg-slate-900 text-white shadow-2xs'
+                ? 'theme-nav-active'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
@@ -547,7 +547,7 @@ export const ParticipantCirculation: React.FC<ParticipantCirculationProps> = ({
             }}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
               activeSubTab === 'by-class'
-                ? 'bg-slate-900 text-white shadow-2xs'
+                ? 'theme-nav-active'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
@@ -563,7 +563,7 @@ export const ParticipantCirculation: React.FC<ParticipantCirculationProps> = ({
             }}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
               activeSubTab === 'rotation'
-                ? 'bg-slate-900 text-white shadow-2xs'
+                ? 'theme-nav-active'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
@@ -653,7 +653,7 @@ export const ParticipantCirculation: React.FC<ParticipantCirculationProps> = ({
                     type="button"
                     disabled={!draftValidation.isValid || draftValidation.grandPlanned === 0}
                     onClick={handleApplyEditedMatrixToAllRooms}
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed rounded-md shadow-xs transition-colors"
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold theme-btn-primary disabled:opacity-40 disabled:cursor-not-allowed rounded-md shadow-xs transition-colors"
                   >
                     <Check className="w-3.5 h-3.5" />
                     <span>
@@ -957,7 +957,7 @@ export const ParticipantCirculation: React.FC<ParticipantCirculationProps> = ({
                                 isOverCap
                                   ? 'bg-rose-600 text-white'
                                   : isFull
-                                  ? 'bg-slate-900 text-white'
+                                  ? 'theme-nav-active'
                                   : plannedRowTotal > 0
                                   ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                   : 'bg-slate-100 text-slate-500'
@@ -980,7 +980,7 @@ export const ParticipantCirculation: React.FC<ParticipantCirculationProps> = ({
                             <span
                               className={`inline-block px-2 py-0.5 rounded font-bold text-2xs ${
                                 isFull
-                                  ? 'bg-slate-900 text-white'
+                                  ? 'theme-nav-active'
                                   : row.total > 0
                                   ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                   : 'bg-slate-100 text-slate-500'
@@ -1521,7 +1521,7 @@ export const ParticipantCirculation: React.FC<ParticipantCirculationProps> = ({
                                   `Hari ${day.dayIndex + 1} (${day.dayLabel})`
                                 )
                               }
-                              className="px-2.5 py-1.5 text-2xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-40 rounded-md whitespace-nowrap transition-colors"
+                              className="px-2.5 py-1.5 text-2xs font-bold theme-btn-primary disabled:opacity-40 rounded-md whitespace-nowrap transition-colors"
                             >
                               Terapkan ke Semua Ruang
                             </button>

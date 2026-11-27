@@ -76,7 +76,7 @@ export const DeskCardControlBar: React.FC<DeskCardControlBarProps> = ({
               }
               className={`px-2.5 py-1 text-2xs font-bold rounded transition-colors whitespace-nowrap ${
                 config.scope === 'room'
-                  ? 'bg-slate-900 text-white'
+                  ? 'theme-nav-active'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -87,7 +87,7 @@ export const DeskCardControlBar: React.FC<DeskCardControlBarProps> = ({
               onClick={() => onChangeConfig({ ...config, scope: 'all-rooms' })}
               className={`px-2.5 py-1 text-2xs font-bold rounded transition-colors whitespace-nowrap ${
                 config.scope === 'all-rooms'
-                  ? 'bg-slate-900 text-white'
+                  ? 'theme-nav-active'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -107,7 +107,7 @@ export const DeskCardControlBar: React.FC<DeskCardControlBarProps> = ({
               }
               className={`px-2.5 py-1 text-2xs font-bold rounded transition-colors whitespace-nowrap ${
                 config.scope === 'class'
-                  ? 'bg-slate-900 text-white'
+                  ? 'theme-nav-active'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >

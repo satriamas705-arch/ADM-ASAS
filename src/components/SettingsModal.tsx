@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { Save, Upload, Trash2 } from 'lucide-react';
+import { Save, Upload, Trash2, Palette, Check } from 'lucide-react';
 import { ExamSettings, Room, Student, ExamScheduleItem } from '../types';
 import { extractCityFromAddress } from '../utils/examDocuments';
 import { ExamBackupData } from '../utils/backupRestore';
 import { processStampFileToTransparentPng } from '../utils/imageTransparency';
+import { UI_THEME_OPTIONS } from '../utils/uiThemes';
 import { BackupRestoreCard } from './BackupRestoreCard';
 
 interface SettingsModalProps {
@@ -379,6 +380,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 })}
               </div>
             </div>
+            {/* Tema Warna Antarmuka Dinamis */}
+            <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+              <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+                <Palette className="w-3.5 h-3.5 theme-accent-icon" />
+                <span>Tema Warna Antarmuka Dinamis</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {UI_THEME_OPTIONS.map((option) => {
+                  const selected = (formData.uiTheme || 'dynamic-auto') === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, uiTheme: option.id })}
+                      className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all ${
+                        selected
+                          ? 'theme-card-active'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <span
+                        className="w-4 h-4 rounded-full shrink-0 border border-black/10"
+                        style={{
+                          background: option.isDynamic
+                            ? 'linear-gradient(135deg, #2563EB 0%, #0D9488 50%, #D97706 100%)'
+                            : `linear-gradient(135deg, ${option.swatchHex}, ${option.secondaryHex})`,
+                        }}
+                      />
+                      <span className="text-2xs font-bold text-slate-800 truncate flex-1">
+                        {option.label}
+                      </span>
+                      {selected && <Check className="w-3 h-3 theme-accent-icon shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
@@ -391,7 +429,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
             <button
               type="submit"
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold theme-btn-primary rounded-md"
             >
               <Save className="w-3.5 h-3.5" />
               <span>Simpan Perubahan</span>

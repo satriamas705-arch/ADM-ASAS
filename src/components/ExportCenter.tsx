@@ -461,7 +461,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
                 onClick={() => handleSelectPaperSize(key)}
                 className={`px-3 py-1.5 text-xs font-bold rounded-md border transition-colors ${
                   isSelected
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                    ? 'theme-nav-active border-transparent'
                     : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100'
                 }`}
               >
@@ -589,7 +589,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
                       onClick={() => setAttendance1Mode(opt.id)}
                       className={`py-1.5 px-2 text-2xs font-bold rounded transition-colors ${
                         attendance1Mode === opt.id
-                          ? 'bg-slate-900 text-white'
+                          ? 'theme-nav-active'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
@@ -686,7 +686,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
           <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-end">
             <button
               onClick={handleExportAttendancePdf}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md shadow-sm transition-colors"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold theme-btn-primary rounded-md shadow-sm transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Unduh Daftar Hadir PDF</span>
@@ -730,7 +730,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
                       onClick={() => setAttendance2Mode(opt.id)}
                       className={`py-1.5 px-2 text-2xs font-bold rounded transition-colors ${
                         attendance2Mode === opt.id
-                          ? 'bg-slate-900 text-white'
+                          ? 'theme-nav-active'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
@@ -799,7 +799,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
           <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-end">
             <button
               onClick={handleExportAttendance2Pdf}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md shadow-sm transition-colors"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold theme-btn-primary rounded-md shadow-sm transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Unduh Daftar Hadir 2 PDF</span>
@@ -849,7 +849,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
           <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-end">
             <button
               onClick={handleExportDoorPosterPdf}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md shadow-sm transition-colors"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold theme-btn-primary rounded-md shadow-sm transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Unduh Tempelan Pintu PDF</span>
@@ -915,7 +915,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
             <button
               onClick={handleExportSeatingPdf}
               disabled={!isAllocated}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 rounded-md shadow-sm transition-colors"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold theme-btn-primary disabled:opacity-50 rounded-md shadow-sm transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Unduh Denah PDF</span>
@@ -960,7 +960,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
               </div>
 
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-slate-600">
-                Memuat Kop Surat resmi, informasi pengawas ruang, daftar lengkap peserta beserta NISN, rekap jumlah siswa L/P per kelas, serta pengesahan Ketua Panitia &amp; Kepala Sekolah.
+                Memuat Kop Surat resmi, informasi ruang dan kapasitas, daftar lengkap peserta beserta NISN, rekap jumlah siswa L/P per kelas, serta pengesahan Kepala Sekolah &amp; Ketua Panitia.
               </div>
             </div>
           </div>
@@ -980,7 +980,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
             <button
               onClick={handleExportRoomParticipantsPdf}
               disabled={!isAllocated}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 rounded-md shadow-sm transition-colors"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold theme-btn-primary disabled:opacity-50 rounded-md shadow-sm transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Unduh Data Peserta PDF</span>
@@ -1052,7 +1052,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
             <button
               onClick={handleExportCardsPdf}
               disabled={!isAllocated}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 rounded-md shadow-sm transition-colors"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold theme-btn-primary disabled:opacity-50 rounded-md shadow-sm transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Unduh Kartu Peserta PDF</span>
@@ -1176,7 +1176,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
             <button
               onClick={handleExportDeskCardsPdf}
               disabled={!isAllocated}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 rounded-md shadow-sm transition-colors"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold theme-btn-primary disabled:opacity-50 rounded-md shadow-sm transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Unduh Kartu Meja PDF</span>
@@ -1214,7 +1214,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
           <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-end">
             <button
               onClick={handleExportSchedulePdf}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md shadow-sm transition-colors"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold theme-btn-primary rounded-md shadow-sm transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Unduh Jadwal Ujian PDF</span>
@@ -1259,7 +1259,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
             </button>
             <button
               onClick={handleExportCirculationPdf}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md shadow-sm transition-colors"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold theme-btn-primary rounded-md shadow-sm transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Unduh Sirkulasi PDF</span>
@@ -1297,7 +1297,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
           <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-end">
             <button
               onClick={handleExportDistributionMatrixPdf}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md shadow-sm transition-colors"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold theme-btn-primary rounded-md shadow-sm transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Unduh Matriks Distribusi PDF</span>
@@ -1333,7 +1333,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
                     onClick={() => setInvigilatorAttendanceMode('multi-day')}
                     className={`py-1.5 px-2 text-2xs font-bold rounded transition-colors ${
                       invigilatorAttendanceMode === 'multi-day'
-                        ? 'bg-slate-900 text-white'
+                        ? 'theme-nav-active'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -1344,7 +1344,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
                     onClick={() => setInvigilatorAttendanceMode('per-day')}
                     className={`py-1.5 px-2 text-2xs font-bold rounded transition-colors ${
                       invigilatorAttendanceMode === 'per-day'
-                        ? 'bg-slate-900 text-white'
+                        ? 'theme-nav-active'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -1391,7 +1391,7 @@ export const ExportCenter: React.FC<ExportCenterProps> = ({
             </button>
             <button
               onClick={handleExportInvigilatorAttendancePdf}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-md shadow-sm transition-colors"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold theme-btn-primary rounded-md shadow-sm transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Daftar Hadir &amp; TTD PDF</span>

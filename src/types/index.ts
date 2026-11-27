@@ -50,6 +50,15 @@ export interface DailyRoomInvigilatorAssignment {
 
 export type PaperSize = 'a4' | 'f4' | 'legal' | 'letter';
 
+export type UiThemeId =
+  | 'dynamic-auto'
+  | 'ocean-blue'
+  | 'emerald-forest'
+  | 'teal-nusantara'
+  | 'indigo-royal'
+  | 'amber-senja'
+  | 'crimson-merdeka';
+
 export interface ExamSettings {
   // Kop Surat Identitas
   governmentName: string;
@@ -117,6 +126,9 @@ export interface ExamSettings {
 
   // Pilihan Ukuran Kertas Cetak (PDF & Print)
   paperSize?: PaperSize;
+
+  // Tema Warna Antarmuka Dinamis
+  uiTheme?: UiThemeId;
 }
 
 export interface AllocationSummary {

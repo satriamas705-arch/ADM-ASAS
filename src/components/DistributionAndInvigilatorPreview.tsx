@@ -256,7 +256,7 @@ export const InvigilatorControlBar: React.FC<InvigilatorControlBarProps> = ({
             onClick={() => onChangeSubMode('schedule')}
             className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded transition-colors ${
               subMode === 'schedule'
-                ? 'bg-slate-900 text-white shadow-2xs'
+                ? 'theme-nav-active'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -269,7 +269,7 @@ export const InvigilatorControlBar: React.FC<InvigilatorControlBarProps> = ({
             onClick={() => onChangeSubMode('attendance-multi')}
             className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded transition-colors ${
               subMode === 'attendance-multi'
-                ? 'bg-slate-900 text-white shadow-2xs'
+                ? 'theme-nav-active'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -282,7 +282,7 @@ export const InvigilatorControlBar: React.FC<InvigilatorControlBarProps> = ({
             onClick={() => onChangeSubMode('attendance-day')}
             className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded transition-colors ${
               subMode === 'attendance-day'
-                ? 'bg-slate-900 text-white shadow-2xs'
+                ? 'theme-nav-active'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >

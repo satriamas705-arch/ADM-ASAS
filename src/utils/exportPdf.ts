@@ -1509,9 +1509,9 @@ function renderRoomParticipantsPages(
     `${room.name.toUpperCase()} (${room.code}) - ${room.building} | ${(settings.activityName || settings.examTitle).toUpperCase()} (TA ${settings.academicYear})`
   );
 
-  // Room metadata info box
+  // Room metadata info box (2x2 clean grid without Pengawas Ruang)
   const infoBoxY = curY - 1;
-  const infoBoxH = 14.5;
+  const infoBoxH = 11.2;
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(...BOX_BORDER_DARK);
   doc.setLineWidth(0.35);
@@ -1524,47 +1524,32 @@ function renderRoomParticipantsPages(
   const rightColX = marginX + contentWidth * 0.52;
 
   doc.setFont('helvetica', 'normal');
-  doc.text('Ruang / Lokasi', leftColX, infoBoxY + 4.5);
+  doc.text('Ruang / Lokasi', leftColX, infoBoxY + 4.3);
   doc.setFont('helvetica', 'bold');
-  doc.text(`: ${room.name} (${room.code}) — ${room.building}`, leftColX + 24, infoBoxY + 4.5);
+  doc.text(`: ${room.name} (${room.code}) — ${room.building}`, leftColX + 24, infoBoxY + 4.3);
 
   doc.setFont('helvetica', 'normal');
-  doc.text('Pengawas Ruang', leftColX, infoBoxY + 9.2);
+  doc.text('No. Peserta', leftColX, infoBoxY + 8.8);
   doc.setFont('helvetica', 'bold');
-  const inv1Full = `${room.invigilator1 || '-'}${room.invigilator1Nip ? ` (NIP. ${room.invigilator1Nip})` : ''}`;
-  doc.text(
-    fitSingleLineText(doc, `: ${inv1Full}`, contentWidth * 0.5 - 27),
-    leftColX + 24,
-    infoBoxY + 9.2
-  );
+  doc.text(`: ${partRange}`, leftColX + 24, infoBoxY + 8.8);
 
   doc.setFont('helvetica', 'normal');
-  doc.text('No. Peserta', leftColX, infoBoxY + 13.0);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`: ${partRange}`, leftColX + 24, infoBoxY + 13.0);
-
-  doc.setFont('helvetica', 'normal');
-  doc.text('Kapasitas / Terisi', rightColX, infoBoxY + 4.5);
+  doc.text('Kapasitas / Terisi', rightColX, infoBoxY + 4.3);
   doc.setFont('helvetica', 'bold');
   doc.text(
     `: ${roomStudents.length} / ${room.capacity} Kursi (L: ${maleCount}, P: ${femaleCount})`,
     rightColX + 27,
-    infoBoxY + 4.5
+    infoBoxY + 4.3
   );
 
   doc.setFont('helvetica', 'normal');
-  doc.text('Komposisi Kelas', rightColX, infoBoxY + 9.2);
+  doc.text('Komposisi Kelas', rightColX, infoBoxY + 8.8);
   doc.setFont('helvetica', 'bold');
   doc.text(
     fitSingleLineText(doc, `: ${classSummaryText}`, contentWidth * 0.48 - 30),
     rightColX + 27,
-    infoBoxY + 9.2
+    infoBoxY + 8.8
   );
-
-  doc.setFont('helvetica', 'normal');
-  doc.text('Sisa Kursi', rightColX, infoBoxY + 13.0);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`: ${Math.max(0, room.capacity - roomStudents.length)} Meja Kosong`, rightColX + 27, infoBoxY + 13.0);
 
   const tableRows: (string | number)[][] =
     roomStudents.length > 0
@@ -1686,41 +1671,41 @@ function renderRoomParticipantsPages(
   doc.setFontSize(8.0);
   doc.setTextColor(15, 23, 42);
   doc.text('Mengetahui,', leftSigX, sigTopY, { align: 'center' });
-  doc.text('Ketua Panitia Ujian,', leftSigX, sigTopY + 4.2, { align: 'center' });
-  renderPdfStampAndSignature(doc, settings, 'committee', leftSigX, sigTopY + 5.2, {
-    sigW: 30,
-    sigH: 13.5,
-  });
-  const comName = settings.committeeHead || '-';
-  doc.setFont('helvetica', 'bold');
-  doc.text(comName, leftSigX, sigTopY + 21.5, { align: 'center' });
-  const comW = doc.getTextWidth(comName);
-  doc.setDrawColor(15, 23, 42);
-  doc.setLineWidth(0.25);
-  doc.line(leftSigX - comW / 2, sigTopY + 22.1, leftSigX + comW / 2, sigTopY + 22.1);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.2);
-  doc.text(`NIP. ${settings.committeeNip || '-'}`, leftSigX, sigTopY + 25.5, { align: 'center' });
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.0);
-  doc.text(`${cityLabel}, ${dateLabel}`, rightSigX, sigTopY, { align: 'center' });
-  doc.text('Kepala Sekolah,', rightSigX, sigTopY + 4.2, { align: 'center' });
-  renderPdfStampAndSignature(doc, settings, 'headmaster', rightSigX, sigTopY + 5.2, {
+  doc.text('Kepala Sekolah,', leftSigX, sigTopY + 4.2, { align: 'center' });
+  renderPdfStampAndSignature(doc, settings, 'headmaster', leftSigX, sigTopY + 5.2, {
     sigW: 30,
     sigH: 13.5,
     stampSize: 25,
   });
   const hmName = settings.headmaster || '-';
   doc.setFont('helvetica', 'bold');
-  doc.text(hmName, rightSigX, sigTopY + 21.5, { align: 'center' });
+  doc.text(hmName, leftSigX, sigTopY + 21.5, { align: 'center' });
   const hmW = doc.getTextWidth(hmName);
   doc.setDrawColor(15, 23, 42);
   doc.setLineWidth(0.25);
-  doc.line(rightSigX - hmW / 2, sigTopY + 22.1, rightSigX + hmW / 2, sigTopY + 22.1);
+  doc.line(leftSigX - hmW / 2, sigTopY + 22.1, leftSigX + hmW / 2, sigTopY + 22.1);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.2);
-  doc.text(`NIP. ${settings.headmasterNip || '-'}`, rightSigX, sigTopY + 25.5, { align: 'center' });
+  doc.text(`NIP. ${settings.headmasterNip || '-'}`, leftSigX, sigTopY + 25.5, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.0);
+  doc.text(`${cityLabel}, ${dateLabel}`, rightSigX, sigTopY, { align: 'center' });
+  doc.text('Ketua Panitia Ujian,', rightSigX, sigTopY + 4.2, { align: 'center' });
+  renderPdfStampAndSignature(doc, settings, 'committee', rightSigX, sigTopY + 5.2, {
+    sigW: 30,
+    sigH: 13.5,
+  });
+  const comName = settings.committeeHead || '-';
+  doc.setFont('helvetica', 'bold');
+  doc.text(comName, rightSigX, sigTopY + 21.5, { align: 'center' });
+  const comW = doc.getTextWidth(comName);
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.25);
+  doc.line(rightSigX - comW / 2, sigTopY + 22.1, rightSigX + comW / 2, sigTopY + 22.1);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.2);
+  doc.text(`NIP. ${settings.committeeNip || '-'}`, rightSigX, sigTopY + 25.5, { align: 'center' });
 }
 
 /**
